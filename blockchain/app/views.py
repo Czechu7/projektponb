@@ -1,3 +1,4 @@
+import requests
 from flask import Blueprint, jsonify, request
 from .models.blockchain import Blockchain
 

@@ -1,0 +1,18 @@
+<div class="container-fluid">
+    <div class="form-group">
+        <input type="text" class="form-control" placeholder="Name" />
+        <input type="number" class="form-control" placeholder="Quantity" />
+        <input type="number" class="form-control" placeholder="Price" />
+        <button class="btn btn-primary" (click)="addCart()">Add Product</button>
+    </div>
+</div>
+<ul class="list-group">
+    @for (cart of cart; track cart.id) {
+    <li class="list-group-item">
+        {{ cart.id + ". " + cart.userName }}
+    </li>
+    <button class="btn btn-primary" (click)="navigateToCart(cart.id)">
+        View Cart Details
+    </button>
+    }
+</ul>

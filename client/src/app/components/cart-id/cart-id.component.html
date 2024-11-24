@@ -1,0 +1,16 @@
+@if (cart) {
+    <div>
+        <h2>Koszyk nr {{ cart.id }}</h2>
+        <ul class="list-group">
+          @for (item of cart.items; track item.id) {
+            <li class="list-group-item">
+                Produkt: {{ item.productName }}<br />
+                Ilość: {{ item.quantity }}<br />
+                Cena: {{ item.price }}
+            </li>
+          }
+        </ul>
+        <p>Łączna wartość: {{ cart.totalPrice }}</p>
+    </div>
+}
+

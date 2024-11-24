@@ -1,0 +1,15 @@
+<div class="container-fluid">
+    <div class="form-group">
+      <input type="text" class="form-control" [(ngModel)]="newProduct.name" placeholder="Name" />
+      <input type="number" class="form-control" [(ngModel)]="newProduct.quantity" placeholder="Quantity" />
+      <input type="number" class="form-control" [(ngModel)]="newProduct.price" placeholder="Price" />
+      <button class="btn btn-primary" (click)="addProduct()">Add Product</button>
+    </div>
+</div>
+<ul class="list-group">
+    @for (product of products; track product.id) {
+      <li class="list-group-item">
+        {{ product.id + ". " + product.name }} - Quantity: {{ product.quantity }} - Price: {{ product.price }}
+      </li>
+    }
+</ul>

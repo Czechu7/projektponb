@@ -10,6 +10,7 @@ namespace API.Data
         }
 
         public DbSet<AppUser> Users { get; set; }
+        public DbSet<FileEntity> Files { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

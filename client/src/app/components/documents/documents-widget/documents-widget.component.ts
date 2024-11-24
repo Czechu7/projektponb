@@ -1,8 +1,9 @@
 import { CommonModule } from '@angular/common';
-import { Component } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { BsDropdownModule } from 'ngx-bootstrap/dropdown';
 import { PaginationModule } from 'ngx-bootstrap/pagination';
 import { ProgressbarModule } from 'ngx-bootstrap/progressbar';
+import { FileService } from '../../../_services/file.service';
 
 
 @Component({
@@ -15,4 +16,22 @@ import { ProgressbarModule } from 'ngx-bootstrap/progressbar';
 export class DocumentsWidgetComponent {
   currentPage = 1;
   totalItems = 64;
+  selectedFile: File | null = null;
+  private fileService= inject(FileService);
+
+  uploadFile(): void {
+    if (this.selectedFile) {
+      this.fileService.uploadFile(this.selectedFile).subscribe(
+   
+      );
+    }
+  }
+  onFileSelected(event: any): void {
+    const file: File = event.target.files[0]; 
+    if (file) {
+      this.selectedFile = file;
+      console.log('taki plik se wybrales', file);
+    }
+  
+}
 }

@@ -3,7 +3,11 @@ import requests
 import logging
 import zlib
 from .block import Block
-
+import argparse
+from .node_monitor import NodeMonitor
+parser = argparse.ArgumentParser()
+parser.add_argument('--port', type=int, default=5001)
+args = parser.parse_args()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -13,7 +17,9 @@ class Blockchain:
         self.difficulty = difficulty
         self.pending_transactions = []
         self.nodes = set()
-
+        self.port = args.port
+        self.node_address = f"http://127.0.0.1:{self.port}"  
+        self.node_monitor = NodeMonitor(port=self.port, node_address=self.node_address)
         predefined_nodes = [
             "127.0.0.1:5001",
             "127.0.0.1:5002",
@@ -30,7 +36,13 @@ class Blockchain:
 
     def create_genesis_block(self):
         return Block(0, "0", "Genesis Block", time.time())
-
+    async def start_monitoring(self):
+            await self.node_monitor.start_monitoring()
+            await self.node_monitor.report_status("active")
+            
+    def get_active_nodes(self):
+        return self.node_monitor.get_all_statuses()
+    
     def get_latest_block(self):
         return self.chain[-1]
 

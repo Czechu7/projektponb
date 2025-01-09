@@ -2,14 +2,9 @@
 using API.Services;
 using Microsoft.AspNetCore.SignalR;
 namespace API.Hubs;
-public class BlockchainHub : Hub
+public class BlockchainHub(NodeStatusService nodeStatusService) : Hub
 {
-    private readonly NodeStatusService _nodeStatusService;
-
-    public BlockchainHub(NodeStatusService nodeStatusService)
-    {
-        _nodeStatusService = nodeStatusService;
-    }
+    private readonly NodeStatusService _nodeStatusService = nodeStatusService;
 
     public async Task UpdateNodeStatus(string nodeAddress, string status)
     {

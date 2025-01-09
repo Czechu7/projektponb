@@ -3,12 +3,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace API.Data
 {
-    public class DataContext : DbContext
+    public class DataContext(DbContextOptions<DataContext> options) : DbContext(options)
     {
-        public DataContext(DbContextOptions<DataContext> options) : base(options) 
-        {
-        }
-
         public DbSet<AppUser> Users { get; set; }
         public DbSet<FileEntity> Files { get; set; }
 

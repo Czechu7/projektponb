@@ -10,7 +10,6 @@ public class NodeStatusService
     public NodeStatusService(ILogger<NodeStatusService> logger)
     {
         _logger = logger;
-        //InitializeNodes();
     }
 
 

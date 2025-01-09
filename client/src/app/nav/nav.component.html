@@ -1,46 +1,59 @@
-<nav class="navbar navbar-expand-md navbar-dark fixed-top bg-primary">
+<nav class="navbar navbar-expand-lg fixed-top">
     <div class="container">
-        <a class="navbar-brand" routerLinkActive="active" routerLink="/">Aplikacje internetowe</a>
+        <a class="navbar-brand" routerLink="/">
+            🔗 Blockchain Insurance
+        </a>
 
+        <button class="navbar-toggler" type="button" (click)="isCollapsed = !isCollapsed">
+            <span class="navbar-toggler-icon"></span>
+        </button>
 
-        <ul class="navbar-nav me-auto mb-2 mb-md-0">
+        <div class="collapse navbar-collapse" [collapse]="isCollapsed" [isAnimated]="true">
+            <ul class="navbar-nav me-auto">
+                @if (accountService.currentUser()) {
+                <li class="nav-item">
+                    <a routerLink="/members" routerLinkActive="active" class="nav-link">
+                        👥 Users
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a routerLink="/documents" routerLinkActive="active" class="nav-link">
+                        📄 Documents
+                    </a>
+                </li>
+                }
+                <li class="nav-item">
+                    <a routerLink="/errors" routerLinkActive="active" class="nav-link">
+                        ⚠️ Errors
+                    </a>
+                </li>
+            </ul>
+
             @if (accountService.currentUser()) {
-            <li class="nav-item">
-                <a routerLink="/members" routerLinkActive="active" class="nav-link">Users</a>
-            </li>
-            <li class="nav-item">
-                <a routerLink="/documents" routerLinkActive="active" class="nav-link">documents</a>
-            </li>
-            }
-            <li class="nav-item">
-                <a routerLink="/errors" routerLinkActive="active" class="nav-link">Errors</a>
-            </li>
-        </ul>
-
-
-        @if (accountService.currentUser()) {
-        <div dropdown class="dropdown">
-            <a dropdownToggle class="dropdown-toggle text-light text-decoration-none">
-                Welcome {{accountService.currentUser()?.username | titlecase}}
-            </a>
-            <div *dropdownMenu class="dropdown-menu">
-                <a class="dropdown-item">Edit profile</a>
-                <div class="dropdown-divider"></div>
-                <a class="dropdown-item" (click)="logout()">Logout</a>
+            <div class="dropdown" dropdown>
+                <a class="nav-link dropdown-toggle" dropdownToggle>
+                    Welcome {{accountService.currentUser()?.username | titlecase}}
+                </a>
+                <div class="dropdown-menu dropdown-menu-end" *dropdownMenu>
+                    <a class="dropdown-item">
+                        ⚙️ Edit profile
+                    </a>
+                    <div class="dropdown-divider"></div>
+                    <a class="dropdown-item" (click)="logout()">
+                        🚪 Logout
+                    </a>
+                </div>
             </div>
+            }
+
+            @if(!accountService.currentUser()) {
+            <form #loginForm="ngForm" (ngSubmit)="login()" class="d-flex gap-2" autocomplete="off">
+                <input name="username" [(ngModel)]="model.username" class="form-control" placeholder="Username">
+                <input name="password" [(ngModel)]="model.password" class="form-control" placeholder="Password"
+                    type="password">
+                <button class="btn btn-primary" type="submit">Login</button>
+            </form>
+            }
         </div>
-        }
-
-
-
-        @if(!accountService.currentUser()){
-        <form #loginForm="ngForm" (ngSubmit)="login()" class="d-flex" autocomplete="off">
-            <input name="username" [(ngModel)]="model.username" class="form-control me-2" placeholder="Username">
-            <input name="password" [(ngModel)]="model.password" class="form-control me-2" placeholder="Password"
-                type="password">
-            <button class="btn btn-success" type="submit">Login</button>
-        </form>
-        }
-
     </div>
 </nav>

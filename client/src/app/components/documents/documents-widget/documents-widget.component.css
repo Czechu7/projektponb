@@ -174,3 +174,45 @@ body {
     box-shadow: 4px 4px 8px var(--neu-shadow-dark),
                 -4px -4px 8px var(--neu-shadow-light);
   }
+
+  .document-type-badge {
+    background: #e9ecef;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+  }
+  
+  .verification-status {
+    &.verified {
+      color: #28a745;
+    }
+  }
+  
+  .status-badge {
+    padding: 4px 12px;
+    border-radius: 16px;
+    font-size: 0.85rem;
+    
+    &.confirmed {
+      background: #d4edda;
+      color: #155724;
+    }
+    
+    &.pending {
+      background: #fff3cd;
+      color: #856404;
+    }
+  }
+  
+  .transaction-hash {
+    font-family: monospace;
+    color: #6c757d;
+  }
+  
+  .neu-select {
+    border: none;
+    background: #f8f9fa;
+    padding: 8px;
+    border-radius: 8px;
+    box-shadow: inset 2px 2px 5px #babecc, inset -5px -5px 10px #ffffff;
+  }

@@ -18,7 +18,8 @@ export class DocumentsWidgetComponent {
   totalItems = 64;
   selectedFile: File | null = null;
   private fileService= inject(FileService);
-
+  transactions: any;
+  documents:any;
   uploadFile(): void {
     if (this.selectedFile) {
       this.fileService.uploadFile(this.selectedFile).subscribe(

@@ -12,8 +12,10 @@ def new_transaction():
         return 'Invalid transaction data', 400
 
     transaction = values['transaction']
-    blockchain.add_transaction(transaction)
-    return jsonify({'message': 'Transaction added successfully!'}), 201
+    if blockchain.add_transaction(transaction):
+        return jsonify({'message': 'Transaction added successfully!'}), 201
+    else:
+        return jsonify({'message': 'Transaction rejected!'}), 400
 
 @bp.route('/mine', methods=['GET'])
 def mine():
@@ -74,3 +76,18 @@ def consensus():
                        'transactions': block.transactions, 'timestamp': block.timestamp, 
                        'hash': block.hash} for block in blockchain.chain]
         }), 200
+
+@bp.route('/vote', methods=['POST'])
+def vote():
+    values = request.get_json()
+    if not values or 'transaction' not in values:
+        return jsonify({'vote': 'no'}), 400
+
+    transaction = values['transaction']
+    
+    required_fields = ['transaction_id', 'document_id', 'document_type', 'timestamp', 'data', 'signature']
+    for field in required_fields:
+        if field not in transaction:
+            return jsonify({'vote': 'no', 'reason': f'Missing field: {field}'}), 400
+
+    return jsonify({'vote': 'yes'}), 200

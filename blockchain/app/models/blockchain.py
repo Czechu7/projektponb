@@ -1,6 +1,10 @@
 import time
 import requests
+import logging
 from .block import Block
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 class Blockchain:
     def __init__(self, difficulty=2):
@@ -9,6 +13,20 @@ class Blockchain:
         self.pending_transactions = []
         self.nodes = set()
 
+        predefined_nodes = [
+            "127.0.0.1:5001",
+            "127.0.0.1:5002",
+            "127.0.0.1:5003",
+            "127.0.0.1:5004",
+            "127.0.0.1:5005",
+            "127.0.0.1:5006"
+        ]
+
+        self.consensus_threshold = len(predefined_nodes) // 2 + 1
+
+        for node in predefined_nodes:
+            self.register_node(node)
+
     def create_genesis_block(self):
         return Block(0, "0", "Genesis Block", time.time())
 
@@ -16,7 +34,12 @@ class Blockchain:
         return self.chain[-1]
 
     def add_transaction(self, transaction):
-        self.pending_transactions.append(transaction)
+        if self.vote_on_transaction(transaction):
+            self.pending_transactions.append(transaction)
+            logger.info(f"Transaction {transaction} added successfully!")
+            return True
+        logger.info(f"Transaction {transaction} rejected!")
+        return False
 
     def mine_pending_transactions(self):
         block = Block(len(self.chain), self.get_latest_block().hash, self.pending_transactions)
@@ -66,3 +89,20 @@ class Blockchain:
             return True
 
         return False
+
+    def vote_on_transaction(self, transaction):
+        votes = 0
+        for node in self.nodes:
+            response = requests.post(f'http://{node}/vote', json={'transaction': transaction})
+            if response.status_code == 200 and response.json().get('vote') == 'yes':
+                votes += 1
+                logger.info(f"Node {node} voted YES for transaction {transaction}")
+            else:
+                logger.info(f"Node {node} voted NO for transaction {transaction}")
+
+        if votes >= self.consensus_threshold:
+            logger.info(f"Transaction {transaction} approved with {votes} votes")
+        else:
+            logger.info(f"Transaction {transaction} rejected with {votes} votes")
+
+        return votes >= self.consensus_threshold

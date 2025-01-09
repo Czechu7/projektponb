@@ -1,5 +1,6 @@
 import requests
 from flask import Blueprint, jsonify, request
+import zlib
 from .models.blockchain import Blockchain
 
 bp = Blueprint('blockchain', __name__)
@@ -12,6 +13,7 @@ def new_transaction():
         return 'Invalid transaction data', 400
 
     transaction = values['transaction']
+    transaction['crc'] = zlib.crc32(transaction['data'].encode('utf-8'))
     if blockchain.add_transaction(transaction):
         return jsonify({'message': 'Transaction added successfully!'}), 201
     else:
@@ -85,9 +87,13 @@ def vote():
 
     transaction = values['transaction']
     
-    required_fields = ['transaction_id', 'document_id', 'document_type', 'timestamp', 'data', 'signature']
+    required_fields = ['transaction_id', 'document_id', 'document_type', 'timestamp', 'data', 'signature', 'crc']
     for field in required_fields:
         if field not in transaction:
             return jsonify({'vote': 'no', 'reason': f'Missing field: {field}'}), 400
+
+    calculated_crc = zlib.crc32(transaction['data'].encode('utf-8'))
+    if calculated_crc != transaction['crc']:
+        return jsonify({'vote': 'no', 'reason': 'CRC mismatch'}), 400
 
     return jsonify({'vote': 'yes'}), 200

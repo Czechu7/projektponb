@@ -1,6 +1,7 @@
 import time
 import requests
 import logging
+import zlib
 from .block import Block
 
 logging.basicConfig(level=logging.INFO)
@@ -91,6 +92,12 @@ class Blockchain:
         return False
 
     def vote_on_transaction(self, transaction):
+        transaction_data = transaction['data']
+        calculated_crc = zlib.crc32(transaction_data.encode('utf-8'))
+        if calculated_crc != transaction['crc']:
+            logger.info(f"Transaction {transaction} rejected due to CRC mismatch!")
+            return False
+
         votes = 0
         for node in self.nodes:
             response = requests.post(f'http://{node}/vote', json={'transaction': transaction})

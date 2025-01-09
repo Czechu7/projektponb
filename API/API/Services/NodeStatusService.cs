@@ -10,16 +10,9 @@ public class NodeStatusService
     public NodeStatusService(ILogger<NodeStatusService> logger)
     {
         _logger = logger;
-        InitializeNodes();
+        //InitializeNodes();
     }
 
-    private void InitializeNodes()
-    {
-        for (int port = 5001; port <= 5006; port++)
-        {
-            UpdateNodeStatus($"http://localhost:{port}", "inactive");
-        }
-    }
 
     public void UpdateNodeStatus(string nodeAddress, string status)
     {

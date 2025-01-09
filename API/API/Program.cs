@@ -25,7 +25,15 @@ builder.Services.Configure<Microsoft.AspNetCore.Http.Json.JsonOptions>(options =
     options.SerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
 });
 
-
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("CorsPolicy", builder => 
+        builder
+            .SetIsOriginAllowed(_ => true) // Allow any origin
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials());
+});
 
 var app = builder.Build();
 if (app.Environment.IsDevelopment())
@@ -39,6 +47,8 @@ if (app.Environment.IsDevelopment())
     });
 }
 app.UseMiddleware<ExceptionMiddleware>();
+
+app.UseCors("CorsPolicy");
 // app.UseCors(x => x.AllowAnyHeader().AllowAnyMethod()
 //     .WithOrigins(
 //         "http://localhost:4200",

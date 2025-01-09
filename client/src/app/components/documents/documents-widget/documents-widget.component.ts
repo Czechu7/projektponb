@@ -1,9 +1,10 @@
 import { CommonModule } from '@angular/common';
-import { Component, inject } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { BsDropdownModule } from 'ngx-bootstrap/dropdown';
 import { PaginationModule } from 'ngx-bootstrap/pagination';
 import { ProgressbarModule } from 'ngx-bootstrap/progressbar';
 import { FileService } from '../../../_services/file.service';
+import { BlockchainService } from '../../../_services/blockchain.service';
 
 
 @Component({
@@ -18,8 +19,12 @@ export class DocumentsWidgetComponent {
   totalItems = 64;
   selectedFile: File | null = null;
   private fileService= inject(FileService);
+  private blockchainService = inject(BlockchainService);
+  documents: any;
+  nodeStatuses = this.blockchainService.nodeStatuses$;
+  
   transactions: any;
-  documents:any;
+  //documents = signal<any[]>([]);
   uploadFile(): void {
     if (this.selectedFile) {
       this.fileService.uploadFile(this.selectedFile).subscribe(

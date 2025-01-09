@@ -65,28 +65,20 @@
     </div>
 
     <!-- Blockchain Verification Section -->
-    <div class="col-md-12 mb-4">
-      <div class="neu-card">
-        <h3>🔗 Blockchain Verification Status</h3>
-        <div class="status-list">
-          @for (transaction of transactions; track transaction.id) {
-          <div class="neu-list-item">
-            <div class="d-flex justify-content-between align-items-center">
-              <div>
-                <span class="transaction-hash">{{transaction.hash}}</span>
-                <span class="ms-3 document-name">{{transaction.documentName}}</span>
-              </div>
-              <div class="d-flex align-items-center">
-                <span class="status-badge" [class]="transaction.status">
-                  {{transaction.status}}
-                </span>
-                <span class="ms-3 timestamp">{{transaction.timestamp | date:'short'}}</span>
-              </div>
-            </div>
-          </div>
-          }
+    <div class="node-status">
+      <h2>Node Statuses</h2>
+      @for (node of nodeStatuses | async; track node.address) {
+        <div [class]="'node ' + node.status">
+          @if(node.status ==="active"){
+            🟢
+          }@else{
+            🔴
+          } {{ node.address }} - {{ node.status }}
+          <small>Last updated: {{ node.lastUpdate | date:'medium' }}</small>
         </div>
-      </div>
-    </div>
+      }
+      @empty {
+        <div>No nodes available</div>
+      }
   </div>
 </div>

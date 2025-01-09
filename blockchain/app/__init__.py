@@ -1,5 +1,5 @@
 from flask import Flask
-from .views import bp
+from .routes import bp
 
 def create_app():
     app = Flask(__name__)

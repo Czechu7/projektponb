@@ -1,8 +1,15 @@
 from app import create_app
+from app.signalr_client import SignalRClient
 import argparse
 import socket
 import threading
 import time
+import requests
+import random
+from flask import Flask, request, jsonify
+
+# Globalna lista węzłów
+NODES = [5001, 5002, 5003, 5004, 5005, 5006]
 
 parser = argparse.ArgumentParser(description='Blockchain Node')
 parser.add_argument('--port', type=int, default=5001, help='Port to run the Flask app on')
@@ -10,6 +17,23 @@ parser.add_argument('--main', action='store_true', help='Specify if this node is
 args = parser.parse_args()
 
 app = create_app()
+leader_votes = 0
+is_leader = False
+leader_node = None
+
+@app.route('/vote', methods=['POST'])
+def vote():
+    global leader_votes, leader_node
+    data = request.get_json()
+    if data.get('vote') == 'leader':
+        leader_votes += 1
+        leader_node = data.get('node')
+        return jsonify({'status': 'ACK'}), 200
+    return jsonify({'status': 'NACK'}), 400
+
+@app.route('/leader', methods=['GET'])
+def get_leader():
+    return jsonify({'leader': leader_node}), 200
 
 def handle_client_connection(client_socket):
     while True:
@@ -42,7 +66,7 @@ def connect_to_main_server():
         try:
             client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             client_socket.connect(('127.0.0.1', 6001))
-            print("Connected to main server")
+            print(f"Connected to main server at port 6001")
             while True:
                 # Send status or other messages to the main server
                 client_socket.send(f"Node {args.port} status: active".encode())
@@ -57,22 +81,45 @@ def connect_to_main_server():
     initiate_leader_election()
 
 def initiate_leader_election():
-    nodes = [5001, 5002, 5003, 5004, 5005, 5006]  # Lista portów innych węzłów
-    for node_port in nodes:
+    global is_leader, leader_votes, leader_node
+    leader_votes = 0
+    leader_node = args.port
+    print(f"Initiating leader election for node {args.port}.")
+    
+    for node_port in NODES:
         try:
-            client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            client_socket.connect(('127.0.0.1', node_port + 1000))
-            client_socket.send(f"LeaderElection:{args.port}".encode())
-            response = client_socket.recv(1024).decode()
-            if response == "ACK":
+            response = requests.post(f'http://127.0.0.1:{node_port}/vote', json={'vote': 'leader', 'node': args.port})
+            if response.status_code == 200 and response.json().get('status') == 'ACK':
                 print(f"Node {node_port} acknowledged leader election.")
-                return
         except:
             continue
     
-    # Jeśli żaden węzeł nie odpowiedział, ten węzeł staje się głównym serwerem
-    print(f"Node {args.port} is becoming the main server.")
-    start_server()
+    # Jeśli ten węzeł otrzymał najwięcej głosów, staje się głównym serwerem
+    if leader_votes >= len(NODES) // 2 + 1:
+        print(f"Node {args.port} is becoming the main server.")
+        is_leader = True
+        start_server()
+    else:
+        print(f"Node {args.port} did not receive enough votes. Checking for the elected leader.")
+        check_elected_leader()
+
+def check_elected_leader():
+    global leader_node
+    for node_port in NODES:
+        try:
+            response = requests.get(f'http://127.0.0.1:{node_port}/leader')
+            if response.status_code == 200:
+                leader_node = response.json().get('leader')
+                if leader_node:
+                    print(f"Node {node_port} reports leader as {leader_node}.")
+                    break
+        except:
+            continue
+
+    if leader_node:
+        print(f"Node {args.port} is connected to leader at port {leader_node}.")
+    else:
+        print(f"Node {args.port} could not determine the leader.")
 
 if __name__ == '__main__':
     if args.port == 5001:

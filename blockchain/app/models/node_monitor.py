@@ -77,7 +77,7 @@ class NodeMonitor:
     def handle_node_status(self, data):
             node_address, status = data
             self.node_statuses[node_address] = status
-            print(f"Node {node_address} status: {status}")
+            # print(f"Node {node_address} status: {status}")
     def get_node_status(self, node_address):
         return self.node_statuses.get(node_address, "unknown")
         

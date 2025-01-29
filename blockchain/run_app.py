@@ -98,13 +98,15 @@ def initiate_leader_election():
     if leader_votes >= len(NODES) // 2 + 1:
         print(f"Node {args.port} is becoming the main server.")
         is_leader = True
+        print(f"I am the master node running on port {args.port}.")
         start_server()
     else:
         print(f"Node {args.port} did not receive enough votes. Checking for the elected leader.")
         check_elected_leader()
 
 def check_elected_leader():
-    global leader_node
+    global leader_node, is_leader
+    leader_node = None
     for node_port in NODES:
         try:
             response = requests.get(f'http://127.0.0.1:{node_port}/leader')
@@ -118,8 +120,23 @@ def check_elected_leader():
 
     if leader_node:
         print(f"Node {args.port} is connected to leader at port {leader_node}.")
+        monitor_leader()
     else:
-        print(f"Node {args.port} could not determine the leader.")
+        print(f"Node {args.port} could not determine the leader. Initiating new leader election.")
+        initiate_leader_election()
+
+def monitor_leader():
+    global leader_node
+    while True:
+        try:
+            response = requests.get(f'http://127.0.0.1:{leader_node}/leader')
+            if response.status_code != 200:
+                raise Exception("Leader not responding")
+            time.sleep(10)
+        except:
+            print(f"Leader at port {leader_node} is not responding. Initiating new leader election.")
+            initiate_leader_election()
+            break
 
 if __name__ == '__main__':
     if args.port == 5001:

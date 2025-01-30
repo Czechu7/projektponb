@@ -28,15 +28,21 @@ class FileUploadHub:
     def receive_file(self, data):
         """Odbieranie pliku i zapisanie go"""
         try:
-            file_name, checksum = data
-            logger.info(f"Otrzymano plik: {file_name}, checksum = {checksum}")
+            file_data, checksum = data
+            logger.info(f"Otrzymano plik: {file_data}, checksum = {checksum}")
 
-           
-            transaction = {
-                "data": file_name,  
-                "checksum": checksum,
-                "crc": zlib.crc32(file_name.encode('utf-8'))
-            }
+           #'transaction_id', 'document_id', 'document_type', 'timestamp', 'data', 'crc'
+           # "crc": zlib.crc32(file_name.encode('utf-8')) tak
+
+            transaction= {
+                "transaction_id": "3",
+                "document_id": "3",
+                "document_type": "jpg",
+                "timestamp": "15-15-10.10.2024",
+                "data": file_data,
+                "signature": "amarena",
+                "crc": zlib.crc32(file_data.encode('utf-8'))
+             }
 
             
             added = self.blockchain.add_transaction(transaction)
@@ -47,32 +53,4 @@ class FileUploadHub:
 
         except Exception as e:
             logger.error(f"Błąd podczas odbierania pliku: {e}")
-    #to cos tam dziala
-    # def receive_file(self, data):
-    #     """Odbieranie pliku i zapisanie go"""
-    #     file_name, checksum = data
-    #     logger.info(f"Otrzymano plik: {file_name}, checksum = {checksum}")
-
-
-#to nie
-        # file_path = os.path.join(UPLOAD_FOLDER, file_name)
-        # with open(file_path, "wb") as f:
-        #     f.write(file_bytes)  # Zapisz dane byte[]
-
-        # logger.info(f"File {file_name} saved at {file_path}")
-
-        # file_hash = hashlib.sha256(file_bytes).hexdigest()
-        # logger.debug(f"File hash: {file_hash}")
-
-        # transaction = {
-        #     "file_name": file_name,
-        #     "file_hash": file_hash,
-        #     "timestamp": time.time(),
-        #     "crc": zlib.crc32(file_name.encode('utf-8'))
-        # }
-
-        # Jeśli masz blockchain zdefiniowany, to tutaj dodasz transakcję.
-        # if blockchain.add_transaction(transaction):
-        #     logger.info(f"Transaction for {file_name} added successfully to blockchain")
-        # else:
-        #     logger.warning(f"Failed to add transaction for {file_name} to blockchain")
+   

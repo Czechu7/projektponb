@@ -46,6 +46,7 @@ class Blockchain:
             # Auto start monitoring ping
             # threading.Thread(target=self.ping_nodes, daemon=True).start()
         threading.Thread(target=self.get_active_nodes, daemon=True).start()
+        threading.Thread(target=self.synchronize_after_start, daemon=True).start()
 
     def create_genesis_block(self):
         return Block(0, "0", "Genesis Block", time.time())
@@ -200,6 +201,16 @@ class Blockchain:
         else:
             logger.info(f"[Port {self.port}] No longer chain found, keeping the current chain")
             return False
+        
+    def synchronize_after_start(self):
+        time.sleep(10)
+        while True:
+            if len(self.nodes) == 1:
+                self.get_active_nodes()
+                time.sleep(5)
+                self.synchronize_with_network()
+                if len(self.chain) > 1:
+                    break
 
     def ping_nodes(self):
             while True:

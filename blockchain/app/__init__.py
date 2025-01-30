@@ -13,6 +13,7 @@ def create_app():
     app = Flask(__name__)
     app.register_blueprint(bp)
     file_upload_hub = FileUploadHub()
+    file_upload_hub.hub_connection.start()  
 
     def start_node_monitor():
         try:

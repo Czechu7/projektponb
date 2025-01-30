@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 class FileUploadHub:
     def __init__(self):
         self.hub_connection = HubConnectionBuilder() \
-            .with_url("http://localhost:8081/hub") \
+            .with_url("http://localhost:4999/hub") \
             .build()
 
         self.hub_connection.on_reconnect(self.on_reconnect)  

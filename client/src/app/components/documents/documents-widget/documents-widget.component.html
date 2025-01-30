@@ -68,13 +68,24 @@
     <div class="node-status">
       <h2>Node Statuses</h2>
       @for (node of nodeStatuses | async; track node.address) {
-        <div [class]="'node ' + node.status">
+        <div style="margin-top: 10px" [class]="'node ' + node.status">
           @if(node.status ==="active"){
             🟢
           }@else{
             🔴
           } {{ node.address }} - {{ node.status }}
           <small>Last updated: {{ node.lastUpdate | date:'medium' }}</small>
+          <div style="display: inline; margin-left: 50px;">
+            <button class="btn btn-primary me-2" (click)="disableNode(node)" >
+            Disable
+           </button>
+           <button class="btn btn-primary me-2" (click)="corruptHash(node)" >
+            Corrupt hash
+           </button>
+           <button class="btn btn-primary" (click)="corruptFile(node)" >
+            Corrupt file
+           </button>
+      </div>
         </div>
       }
       @empty {

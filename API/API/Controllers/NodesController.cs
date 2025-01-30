@@ -16,4 +16,24 @@ public class NodesController(NodeStatusService nodeStatusService) : ControllerBa
     {
         return _nodeStatusService.GetAllNodeStatuses();
     }
+
+    [HttpPost("disableNode")]
+    public async Task<IActionResult> DisableNode([FromBody] NodeStatus dto)
+    {
+        return Ok();
+    }
+
+    [HttpPost("corruptHash")]
+    public async Task<IActionResult> CorruptHash([FromBody] NodeStatus dto)
+    {
+        return Ok();
+    }
+
+    [HttpPost("corruptFile")]
+    public async Task<IActionResult> CorruptFile([FromBody] NodeStatus dto)
+    {
+        return Ok();
+    }
+
+
 }

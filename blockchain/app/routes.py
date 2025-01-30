@@ -86,18 +86,18 @@ def consensus():
                        'hash': block.hash} for block in blockchain.chain]
         }), 200
 
-# Routes for syncing new nodes
+# Routes for inicializing new node with network
 @bp.route('/sync', methods=['POST'])
 def sync():
-    values = request.get_json()
-    if not values or 'blocks' not in values:
-        return 'Invalid blockchain data', 400
+    # values = request.get_json()
+    # if not values or 'blocks' not in values:
+    #     return 'Invalid blockchain data', 400
 
-    new_chain = values['blocks']
-    if blockchain.replace_chain(new_chain):
-        return jsonify({'message': 'Blockchain updated'}), 200
+    # new_chain = values['blocks']
+    if blockchain.synchronize_with_network():
+        return jsonify({'message': 'Blockchain synchronized with the longest chain from the network'}), 200
     else:
-        return jsonify({'message': 'Blockchain not updated'}), 400
+        return jsonify({'message': 'No longer chain found, keeping the current chain'}), 400
 
 
 # Routes for voting on transactions

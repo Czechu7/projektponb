@@ -5,6 +5,8 @@ import zlib
 from .block import Block
 import argparse
 from .node_monitor import NodeMonitor
+import threading
+
 parser = argparse.ArgumentParser()
 parser.add_argument('--port', type=int, default=5001)
 args = parser.parse_args()
@@ -34,11 +36,15 @@ class Blockchain:
         for node in predefined_nodes:
             self.register_node(node)
 
+        # Auto start synchronization thread
+        # threading.Thread(target=self.synchronize_with_network, daemon=True).start()
+
     def create_genesis_block(self):
         return Block(0, "0", "Genesis Block", time.time())
+
     async def start_monitoring(self):
-            await self.node_monitor.start_monitoring()
-            await self.node_monitor.report_status("active")
+        await self.node_monitor.start_monitoring()
+        await self.node_monitor.report_status("active")
             
     def get_active_nodes(self):
         return self.node_monitor.get_all_statuses()
@@ -49,9 +55,9 @@ class Blockchain:
     def add_transaction(self, transaction):
         if self.vote_on_transaction(transaction):
             self.pending_transactions.append(transaction)
-            logger.info(f"Transaction {transaction} added successfully!")
+            logger.info(f"[Port {self.port}] Transaction {transaction} added successfully!")
             return True
-        logger.info(f"Transaction {transaction} rejected!")
+        logger.info(f"[Port {self.port}] Transaction {transaction} rejected!")
         return False
 
     def mine_pending_transactions(self):
@@ -77,7 +83,16 @@ class Blockchain:
     def register_node(self, address):
         self.nodes.add(address)
 
-    def replace_chain(self):
+    def replace_chain(self, new_chain=None):
+        if new_chain:
+            chain = [Block(block['index'], block['previous_hash'], block['transactions'], block['timestamp']) for block in new_chain]
+            for block in chain:
+                block.hash = block.calculate_hash()
+            if self.is_chain_valid(chain):
+                self.chain = chain
+                return True
+            return False
+
         network = self.nodes
         longest_chain = None
         max_length = len(self.chain)
@@ -107,7 +122,7 @@ class Blockchain:
         transaction_data = transaction['data']
         calculated_crc = zlib.crc32(transaction_data.encode('utf-8'))
         if calculated_crc != transaction['crc']:
-            logger.info(f"Transaction {transaction} rejected due to CRC mismatch!")
+            logger.info(f"[Port {self.port}] Transaction {transaction} rejected due to CRC mismatch!")
             return False
 
         votes = 0
@@ -115,13 +130,45 @@ class Blockchain:
             response = requests.post(f'http://{node}/vote', json={'transaction': transaction})
             if response.status_code == 200 and response.json().get('vote') == 'yes':
                 votes += 1
-                logger.info(f"Node {node} voted YES for transaction {transaction}")
+                logger.info(f"[Port {self.port}] Node {node} voted YES for transaction {transaction}")
             else:
-                logger.info(f"Node {node} voted NO for transaction {transaction}")
+                logger.info(f"[Port {self.port}] Node {node} voted NO for transaction {transaction}")
 
         if votes >= self.consensus_threshold:
-            logger.info(f"Transaction {transaction} approved with {votes} votes")
+            logger.info(f"[Port {self.port}] Transaction {transaction} approved with {votes} votes")
         else:
-            logger.info(f"Transaction {transaction} rejected with {votes} votes")
+            logger.info(f"[Port {self.port}] Transaction {transaction} rejected with {votes} votes")
 
         return votes >= self.consensus_threshold
+
+    def synchronize_with_network(self):
+        # time.sleep(10)  # Sleep 10 seconds
+        longest_chain = None
+        max_length = len(self.chain)
+
+        for node in self.nodes:
+            try:
+                response = requests.get(f'http://{node}/chain')
+                if response.status_code == 200:
+                    length = response.json()['length']
+                    chain = response.json()['chain']
+
+                    chain = [Block(block['index'], block['previous_hash'], block['transactions'], block['timestamp']) for block in chain]
+                    for block in chain:
+                        block.hash = block.calculate_hash()
+
+                    if length > max_length and self.is_chain_valid(chain):
+                        max_length = length
+                        longest_chain = chain
+                        logger.info(f"[Port {self.port}] Found a longer chain from node {node} with length {length}")
+
+            except requests.exceptions.RequestException as e:
+                logger.error(f"[Port {self.port}] Error synchronizing with node {node}: {e}")
+
+        if longest_chain:
+            self.chain = longest_chain
+            logger.info(f"[Port {self.port}] Blockchain synchronized with the longest chain from the network")
+            return True
+        else:
+            logger.info(f"[Port {self.port}] No longer chain found, keeping the current chain")
+            return False

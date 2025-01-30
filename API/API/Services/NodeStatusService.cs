@@ -34,6 +34,10 @@ public class NodeStatusService
             {
                 UpdateNodeStatus(status.Address, "inactive");
             }
+            else
+            {
+                
+            }
         }
         return _nodeStatuses.Values;
     }

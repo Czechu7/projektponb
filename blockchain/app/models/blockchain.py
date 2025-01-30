@@ -206,7 +206,7 @@ class Blockchain:
                             # logger.info(f"[Port {self.port}] Node {node} responded to ping")
                         else:
                             self.node_failures[node] += 1
-                            logger.info(f"[Port {self.port}] Node {node} failed to respond to ping ({self.node_failures[node]} failures)")
+                           # logger.info(f"[Port {self.port}] Node {node} failed to respond to ping ({self.node_failures[node]} failures)")
                     except requests.exceptions.RequestException as e:
                         self.node_failures[node] += 1
                         logger.error(f"[Port {self.port}] Error pinging node {node}: {e} ({self.node_failures[node]} failures)")

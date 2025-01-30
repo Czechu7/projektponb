@@ -67,6 +67,19 @@ def register_nodes():
 
     return jsonify({'message': 'Nodes added successfully!', 'total_nodes': list(blockchain.nodes)})
 
+
+
+# Routes for registering nodes
+@bp.route('/register_in_network', methods=['POST'])
+def register_in_newtork():
+    values = request.get_json()
+    node = values.get('node')
+    blockchain.register_node_in_network(node)
+
+        
+
+    return jsonify({'message': 'Nodes added successfully!', 'total_nodes': list(blockchain.nodes)})
+
 # Routes for consensus algorithm
 @bp.route('/nodes/resolve', methods=['GET'])
 def consensus():
@@ -149,6 +162,6 @@ def get_nodes():
     return jsonify({'nodes': list(blockchain.nodes)}), 200
 
 # Routes for getting the master node
-@bp.route('/ping', methods=['GET'])
+@bp.route('/ping', methods=['POST'])
 def ping():
     return jsonify({'message': 'pong'}), 200

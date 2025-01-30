@@ -32,12 +32,15 @@ class Blockchain:
         ]
 
         self.consensus_threshold = len(predefined_nodes) // 2 + 1
+        self.node_failures = {node: 0 for node in predefined_nodes}
 
         for node in predefined_nodes:
             self.register_node(node)
 
         # Auto start synchronization thread
         # threading.Thread(target=self.synchronize_with_network, daemon=True).start()
+        # Auto start monitoring ping
+        threading.Thread(target=self.ping_nodes, daemon=True).start()
 
     def create_genesis_block(self):
         return Block(0, "0", "Genesis Block", time.time())
@@ -82,6 +85,21 @@ class Blockchain:
 
     def register_node(self, address):
         self.nodes.add(address)
+
+    def register_node_in_network(self, address):
+        print(f"[Port {self.port}] Registering node {address} in network")
+        self.nodes.add(address)
+        for node in self.nodes:
+            try:
+                requests.post(f'http://{node}/nodes/register', json={'nodes': [address]})
+            except requests.exceptions.RequestException as e:
+                logger.error(f"[Port {self.port}] Error registering node {address} in network): {e}")
+
+
+    def remove_node(self, address):
+        if address in self.nodes:
+            self.nodes.remove(address)
+            logger.info(f"[Port {self.port}] Node {address} removed from the network")
 
     def replace_chain(self, new_chain=None):
         if new_chain:
@@ -172,3 +190,24 @@ class Blockchain:
         else:
             logger.info(f"[Port {self.port}] No longer chain found, keeping the current chain")
             return False
+
+    def ping_nodes(self):
+            while True:
+                time.sleep(10)  # Sleep 10 seconds
+                # print(f"[Port {self.port}] Starting node ping")
+                for node in list(self.nodes):
+                    try:
+                        response = requests.post(f'http://{node}/ping')
+                        if response.status_code == 200:
+                            self.node_failures[node] = 0
+                            # logger.info(f"[Port {self.port}] Node {node} responded to ping")
+                        else:
+                            self.node_failures[node] += 1
+                            logger.info(f"[Port {self.port}] Node {node} failed to respond to ping ({self.node_failures[node]} failures)")
+                    except requests.exceptions.RequestException as e:
+                        self.node_failures[node] += 1
+                        logger.error(f"[Port {self.port}] Error pinging node {node}: {e} ({self.node_failures[node]} failures)")
+
+                    if self.node_failures[node] >= 3:
+                        self.remove_node(node)
+                

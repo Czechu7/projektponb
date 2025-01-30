@@ -3,6 +3,7 @@ from .routes import bp
 import asyncio
 from threading import Thread
 from .models.node_monitor import NodeMonitor
+from .hub import FileUploadHub  
 import logging
 
 logging.basicConfig(level=logging.INFO)

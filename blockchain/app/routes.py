@@ -7,6 +7,7 @@ import argparse
 bp = Blueprint('blockchain', __name__)
 blockchain = Blockchain()
 
+# Routes for adding new transactions
 @bp.route('/transactions/new', methods=['POST'])
 def new_transaction():
     values = request.get_json()
@@ -15,11 +16,13 @@ def new_transaction():
 
     transaction = values['transaction']
     transaction['crc'] = zlib.crc32(transaction['data'].encode('utf-8'))
+
     if blockchain.add_transaction(transaction):
         return jsonify({'message': 'Transaction added successfully!'}), 201
     else:
         return jsonify({'message': 'Transaction rejected!'}), 400
 
+# Routes for mining new blocks
 @bp.route('/mine', methods=['GET'])
 def mine():
     blockchain.mine_pending_transactions()
@@ -37,6 +40,7 @@ def mine():
 
     return jsonify(response)
 
+# Routes for getting the full chain
 @bp.route('/chain', methods=['GET'])
 def full_chain():
     chain_data = [{
@@ -49,6 +53,7 @@ def full_chain():
 
     return jsonify({'chain': chain_data, 'length': len(blockchain.chain)})
 
+# Routes for registering nodes
 @bp.route('/nodes/register', methods=['POST'])
 def register_nodes():
     values = request.get_json()
@@ -62,6 +67,7 @@ def register_nodes():
 
     return jsonify({'message': 'Nodes added successfully!', 'total_nodes': list(blockchain.nodes)})
 
+# Routes for consensus algorithm
 @bp.route('/nodes/resolve', methods=['GET'])
 def consensus():
     replaced = blockchain.replace_chain()
@@ -80,21 +86,69 @@ def consensus():
                        'hash': block.hash} for block in blockchain.chain]
         }), 200
 
+# Routes for syncing new nodes
+@bp.route('/sync', methods=['POST'])
+def sync():
+    values = request.get_json()
+    if not values or 'blocks' not in values:
+        return 'Invalid blockchain data', 400
+
+    new_chain = values['blocks']
+    if blockchain.replace_chain(new_chain):
+        return jsonify({'message': 'Blockchain updated'}), 200
+    else:
+        return jsonify({'message': 'Blockchain not updated'}), 400
+
+
+# Routes for voting on transactions
 @bp.route('/vote', methods=['POST'])
 def vote():
+    node_identifier = request.remote_addr
     values = request.get_json()
     if not values or 'transaction' not in values:
+        print(f"[Node {node_identifier}] Invalid transaction data received")
         return jsonify({'vote': 'no'}), 400
 
     transaction = values['transaction']
+    print(f"[Node {node_identifier}] Transaction received: {transaction}")
     
-    required_fields = ['transaction_id', 'document_id', 'document_type', 'timestamp', 'data', 'signature', 'crc']
+    required_fields = ['transaction_id', 'document_id', 'document_type', 'timestamp', 'data', 'crc']
     for field in required_fields:
         if field not in transaction:
+            print(f"[Node {node_identifier}] Missing field: {field}")
             return jsonify({'vote': 'no', 'reason': f'Missing field: {field}'}), 400
 
     calculated_crc = zlib.crc32(transaction['data'].encode('utf-8'))
     if calculated_crc != transaction['crc']:
+        print(f"[Node {node_identifier}] CRC mismatch: calculated {calculated_crc}, received {transaction['crc']}")
         return jsonify({'vote': 'no', 'reason': 'CRC mismatch'}), 400
 
+    print(f"[Node {node_identifier}] Transaction approved")
     return jsonify({'vote': 'yes'}), 200
+
+
+# Routes for master election
+@bp.route('/elect_master', methods=['POST'])
+def elect_master():
+    blockchain.is_master = True
+    return jsonify({'message': 'This node is now the master'}), 200
+
+# Routes for new master notification
+@bp.route('/notify_master', methods=['POST'])
+def notify_master():
+    values = request.get_json()
+    if not values or 'master_url' not in values:
+        return 'Invalid master URL', 400
+
+    blockchain.master_url = values['master_url']
+    return jsonify({'message': 'Master updated'}), 200
+
+# Routes for getting all nodes
+@bp.route('/nodes', methods=['GET'])
+def get_nodes():
+    return jsonify({'nodes': list(blockchain.nodes)}), 200
+
+# Routes for getting the master node
+@bp.route('/ping', methods=['GET'])
+def ping():
+    return jsonify({'message': 'pong'}), 200

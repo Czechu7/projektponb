@@ -5,6 +5,7 @@ from .models.blockchain import Blockchain
 import argparse
 import os
 import signal
+import logging
 
 bp = Blueprint('blockchain', __name__)
 blockchain = Blockchain()
@@ -31,7 +32,7 @@ def mine():
     response = {
         'message': 'New block mined successfully!',
         'index': blockchain.get_latest_block().index,
-        'hash': blockchain.get_latest_block().hash
+        'hash': blockchain.get_latest_block().hash,
     }
 
     for node in blockchain.nodes:
@@ -121,24 +122,24 @@ def vote():
     node_identifier = request.remote_addr
     values = request.get_json()
     if not values or 'transaction' not in values:
-        print(f"[Node {node_identifier}] Invalid transaction data received")
+        logging.info(f"[Node {node_identifier}] Invalid transaction data received")
         return jsonify({'vote': 'no'}), 400
 
     transaction = values['transaction']
-    print(f"[Node {node_identifier}] Transaction received: {transaction}")
+    logging.info(f"[Node {node_identifier}] Transaction received: {transaction}")
     
     required_fields = ['transaction_id', 'document_id', 'document_type', 'timestamp', 'data', 'crc']
     for field in required_fields:
         if field not in transaction:
-            print(f"[Node {node_identifier}] Missing field: {field}")
+            logging.info(f"[Node {node_identifier}] Missing field: {field}")
             return jsonify({'vote': 'no', 'reason': f'Missing field: {field}'}), 400
 
     calculated_crc = zlib.crc32(transaction['data'].encode('utf-8'))
     if calculated_crc != transaction['crc']:
-        print(f"[Node {node_identifier}] CRC mismatch: calculated {calculated_crc}, received {transaction['crc']}")
+        logging.info(f"[Node {node_identifier}] CRC mismatch: calculated {calculated_crc}, received {transaction['crc']}")
         return jsonify({'vote': 'no', 'reason': 'CRC mismatch'}), 400
 
-    print(f"[Node {node_identifier}] Transaction approved")
+    logging.info(f"[Node {node_identifier}] Transaction approved")
     return jsonify({'vote': 'yes'}), 200
 
 

@@ -1,6 +1,7 @@
 import hashlib
 import json
 import time
+import logging
 
 class Block:
     def __init__(self, index, previous_hash, transactions, timestamp=None):
@@ -26,4 +27,4 @@ class Block:
         while self.hash[:difficulty] != target:
             self.nonce += 1
             self.hash = self.calculate_hash()
-        print(f"Block mined: {self.hash}")
+        logging.info(f"Block mined: {self.hash}, nonce: {self.nonce}, difficulty: {difficulty}")

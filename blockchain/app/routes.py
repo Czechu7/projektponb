@@ -165,3 +165,14 @@ def get_nodes():
 @bp.route('/ping', methods=['POST'])
 def ping():
     return jsonify({'message': 'pong'}), 200
+
+
+
+# SEKCJA SYMULACJI BLEDOW
+@bp.route('/simulated-crc-error', methods=['POST'])
+def simulated_crc_error():
+    if blockchain.simulated_crc_error():
+        return jsonify({'status': True, 'message': 'CRC error simulation enabled'}), 200
+    else:
+        return jsonify({'status': False, 'message': 'CRC error simulation disabled'}), 200
+    

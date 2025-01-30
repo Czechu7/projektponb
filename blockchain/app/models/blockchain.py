@@ -36,6 +36,8 @@ class Blockchain:
         self.consensus_threshold = len(predefined_nodes) // 2 + 1
         self.node_failures = {node: 0 for node in predefined_nodes}
 
+        self.isSimulatedCrcError = False
+
         for node in predefined_nodes:
             self.register_node(node)
 
@@ -141,7 +143,12 @@ class Blockchain:
 
     def vote_on_transaction(self, transaction):
         transaction_data = transaction['data']
-        calculated_crc = zlib.crc32(transaction_data.encode('utf-8'))
+
+        if self.isSimulatedCrcError:
+            calculated_crc = '123123123123'
+        else:
+            calculated_crc = zlib.crc32(transaction_data.encode('utf-8'))
+
         if calculated_crc != transaction['crc']:
             logger.info(f"[Port {self.port}] Transaction {transaction} rejected due to CRC mismatch!")
             return False
@@ -232,3 +239,12 @@ class Blockchain:
 
             except Exception as e:
                 logger.error(f"[Port {self.port}] Error getting active nodes: {e}")
+
+
+
+
+
+    def simulated_crc_error(self):
+        self.isSimulatedCrcError = not self.isSimulatedCrcError
+
+        return self.isSimulatedCrcError

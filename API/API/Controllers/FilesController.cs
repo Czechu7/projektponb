@@ -1,12 +1,14 @@
 ﻿using API.Data;
 using API.Entities;
+using API.Hubs;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Cryptography;
 
 namespace API.Controllers
 {
-    public class FilesController(DataContext context) : BaseApiController
+    public class FilesController(DataContext context, IHubContext<FileHub> _hubContext) : BaseApiController
     {
         private string UploadDirectory => Path.Combine(Directory.GetCurrentDirectory(), "uploads");
 
@@ -32,6 +34,10 @@ namespace API.Controllers
                 await using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
                 var hashBytes = await sha256.ComputeHashAsync(fileStream);
                 checksum = BitConverter.ToString(hashBytes).Replace("-", "").ToLower();
+                byte[] fileBytes = await System.IO.File.ReadAllBytesAsync(filePath);
+                string fileBase64 = Convert.ToBase64String(fileBytes);
+                await _hubContext.Clients.All.SendAsync("UploadFile", fileBase64, checksum);
+
             }
 
             var fileEntity = new FileEntity

@@ -19,6 +19,7 @@ builder.Services.AddSignalR();
 builder.Services.AddSingleton<NodeStatusService>();
 builder.Services.AddApplicationService(builder.Configuration);
 builder.Services.AddIdentityServices(builder.Configuration);
+builder.Services.AddSignalR();
 
 builder.Services.Configure<Microsoft.AspNetCore.Http.Json.JsonOptions>(options =>
 {
@@ -72,5 +73,6 @@ app.UseAuthorization();
 
 // Configure the HTTP request pipeline.
 app.MapControllers();
+app.MapHub<FileHub>("/hub");
 
 app.Run();

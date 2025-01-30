@@ -46,7 +46,7 @@ class Blockchain:
             # Auto start monitoring ping
             # threading.Thread(target=self.ping_nodes, daemon=True).start()
         threading.Thread(target=self.get_active_nodes, daemon=True).start()
-        threading.Thread(target=self.synchronize_after_start, daemon=True).start()
+        # threading.Thread(target=self.synchronize_after_start, daemon=True).start()
 
     def create_genesis_block(self):
         return Block(0, "0", "Genesis Block", time.time())
@@ -212,30 +212,30 @@ class Blockchain:
                 if len(self.chain) > 1:
                     break
 
-    def ping_nodes(self):
-            while True:
-                time.sleep(10)  # Sleep 10 seconds
-                # print(f"[Port {self.port}] Starting node ping")
-                for node in list(self.nodes):
-                    try:
-                        response = requests.post(f'http://{node}/ping')
-                        if response.status_code == 200:
-                            self.node_failures[node] = 0
-                            # logger.info(f"[Port {self.port}] Node {node} responded to ping")
-                        else:
-                            self.node_failures[node] += 1
-                           # logger.info(f"[Port {self.port}] Node {node} failed to respond to ping ({self.node_failures[node]} failures)")
-                    except requests.exceptions.RequestException as e:
-                        self.node_failures[node] += 1
-                        logger.error(f"[Port {self.port}] Error pinging node {node}: {e} ({self.node_failures[node]} failures)")
+    # def ping_nodes(self):
+    #         while True:
+    #             time.sleep(10)  # Sleep 10 seconds
+    #             # print(f"[Port {self.port}] Starting node ping")
+    #             for node in list(self.nodes):
+    #                 try:
+    #                     response = requests.post(f'http://{node}/ping')
+    #                     if response.status_code == 200:
+    #                         self.node_failures[node] = 0
+    #                         # logger.info(f"[Port {self.port}] Node {node} responded to ping")
+    #                     else:
+    #                         self.node_failures[node] += 1
+    #                        # logger.info(f"[Port {self.port}] Node {node} failed to respond to ping ({self.node_failures[node]} failures)")
+    #                 except requests.exceptions.RequestException as e:
+    #                     self.node_failures[node] += 1
+    #                     logger.error(f"[Port {self.port}] Error pinging node {node}: {e} ({self.node_failures[node]} failures)")
 
-                    if self.node_failures[node] >= 3:
-                        self.remove_node(node)
+    #                 if self.node_failures[node] >= 3:
+    #                     self.remove_node(node)
                 
 
     def get_active_nodes(self):
         while True:
-            time.sleep(10)
+            time.sleep(30)
             try:
                 address = f"http://{MASTER_SERVER_IP}/api/nodes"
                 response = requests.get(address).json()
@@ -245,8 +245,8 @@ class Blockchain:
                 if self.nodes != set(cleaned_addresses):
                     logger.info(f"[Port {self.port}] Updating active nodes from {self.nodes} to {set(cleaned_addresses)}")
                     self.nodes = set(cleaned_addresses)
-                else:
-                    logger.info(f"[Port {self.port}] No changes in active nodes")
+                # else:
+                    # logger.info(f"[Port {self.port}] No changes in active nodes")
 
             except Exception as e:
                 logger.error(f"[Port {self.port}] Error getting active nodes: {e}")

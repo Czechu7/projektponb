@@ -3,6 +3,8 @@ from flask import Blueprint, jsonify, request
 import zlib
 from .models.blockchain import Blockchain
 import argparse
+import os
+import signal
 
 bp = Blueprint('blockchain', __name__)
 blockchain = Blockchain()
@@ -169,6 +171,7 @@ def ping():
 
 
 # SEKCJA SYMULACJI BLEDOW
+# CRC ERROR
 @bp.route('/simulated-crc-error', methods=['POST'])
 def simulated_crc_error():
     if blockchain.simulated_crc_error():
@@ -176,3 +179,9 @@ def simulated_crc_error():
     else:
         return jsonify({'status': False, 'message': 'CRC error simulation disabled'}), 200
     
+# SHUTDOWN
+@bp.route('/simulated-shutdown', methods=['POST'])
+def shutdown():
+    pid = os.getpid()
+    os.kill(pid, signal.SIGTERM)
+    return jsonify({'message': 'Server shutting down...'}), 200

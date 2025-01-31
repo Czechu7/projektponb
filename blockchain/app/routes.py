@@ -128,7 +128,8 @@ def vote():
         return jsonify({'vote': 'no'}), 400
 
     transaction = values['transaction']
-    logging.info(f"[Node {node_identifier}] Transaction received: {transaction}")
+    # logging.info(f"[Node {node_identifier}] Transaction received: {transaction}")
+    logging.info(f"[Node {node_identifier}] Transaction received:")
     
     required_fields = ['transaction_id', 'document_id', 'document_type', 'timestamp', 'data', 'crc']
     for field in required_fields:

@@ -1,4 +1,3 @@
-
 from signalrcore.hub_connection_builder import HubConnectionBuilder
 import requests
 from flask import Blueprint, jsonify, request
@@ -32,10 +31,7 @@ class FileUploadHub:
         try:
             file_data, checksum = data
 
-           #'transaction_id', 'document_id', 'document_type', 'timestamp', 'data', 'crc'
-           # "crc": zlib.crc32(file_name.encode('utf-8')) tak
-
-            transaction= {
+            transaction = {
                 "transaction_id": "9",
                 "document_id": "9",
                 "document_type": "jpg",
@@ -43,23 +39,17 @@ class FileUploadHub:
                 "data": file_data,
                 "signature": "amarena",
                 "crc": zlib.crc32(file_data.encode('utf-8'))
-             }
+            }
 
-            if self.blockchain.node_address == "http://127.0.0.1:5001":
-                added = self.blockchain.add_transaction(transaction)
-                if added:
-                  self.blockchain.mine_pending_transactions()
-                  logger.info("Transaction added to blockchain.")
+            if self.blockchain.port == 5001:
+                response = requests.post(f'http://127.0.0.1:5001/transactions/new', json={'transaction': transaction})
+                if response.status_code == 201:
+                    logger.info("Transaction added to blockchain.")
+                    self.blockchain.mine_pending_transactions()
                 else:
-                  logger.warning("Transaction was not added to blockchain.")
+                    logger.warning("Transaction was not added to blockchain.")
             else:
                 logger.info(f"Transakcja odrzucona - nie jest przeznaczona dla tego węzła: {self.blockchain.node_address}")
-            # added = self.blockchain.add_transaction(transaction)
-            # if added:
-            #     logger.info(f"Transaction  added to blockchain.")
-            # else:
-            #     logger.warning(f"Transaction was not added to blockchain.")
 
         except Exception as e:
             logger.error(f"Błąd podczas odbierania pliku: {e}")
-   

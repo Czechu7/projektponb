@@ -2,6 +2,7 @@ import requests
 from flask import Blueprint, jsonify, request
 import zlib
 from .models.blockchain import Blockchain
+from .models.block import Block  # Dodaj ten import
 import argparse
 import os
 import signal
@@ -19,8 +20,21 @@ def new_transaction():
 
     transaction = values['transaction']
     transaction['crc'] = zlib.crc32(transaction['data'].encode('utf-8'))
+    sender_node = f"{request.host}"
+    print(f"Sender node: {sender_node}")
+    print(f"Sender node: {sender_node}")
+    print(f"Sender node: {sender_node}")
+    print(f"Sender node: {sender_node}")
+    print(f"Sender node: {sender_node}")
+    print(f"Sender node: {sender_node}")
+    print(f"Sender node: {sender_node}")
+    print(f"Sender node: {sender_node}")
+    print(f"Sender node: {sender_node}")
+    print(f"Sender node: {sender_node}")
+    print(f"Sender node: {sender_node}")
+    print(f"Sender node: {sender_node}")
 
-    if blockchain.add_transaction(transaction):
+    if blockchain.add_transaction(transaction, sender_node=sender_node):
         return jsonify({'message': 'Transaction added successfully!'}), 201
     else:
         return jsonify({'message': 'Transaction rejected!'}), 400
@@ -170,6 +184,35 @@ def get_nodes():
 @bp.route('/ping', methods=['POST'])
 def ping():
     return jsonify({'message': 'pong'}), 200
+
+@bp.route('/blocks/new', methods=['POST'])
+def new_block():
+    values = request.get_json()
+    if not values or 'block' not in values:
+        return 'Invalid block data', 400
+
+    block_data = values['block']
+    block = Block(
+        index=block_data['index'],
+        previous_hash=block_data['previous_hash'],
+        transactions=block_data['transactions'],
+        timestamp=block_data['timestamp']
+    )
+    block.hash = block_data['hash']
+
+    # Sprawdź poprawność bloku
+    if blockchain.is_chain_valid([block]):
+        blockchain.chain.append(block)
+        logging.info(f"[Port {blockchain.port}] New block added: {block.to_dict()}")
+
+        # Synchronizuj łańcuch z siecią
+        # blockchain.synchronize_with_network()
+
+        return jsonify({'message': 'Block added successfully!'}), 201
+    else:
+        logging.info(f"[Port {blockchain.port}] Block rejected: {block.to_dict()}")
+        return jsonify({'message': 'Block rejected!'}), 400
+
 
 
 

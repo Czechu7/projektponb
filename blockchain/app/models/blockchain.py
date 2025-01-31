@@ -20,6 +20,7 @@ class Blockchain:
         self.chain = [self.create_genesis_block()]
         self.difficulty = difficulty
         self.pending_transactions = []
+        self.processed_transactions = set()
         self.nodes = set()
         self.port = args.port
         self.node_address = f"http://127.0.0.1:{self.port}"  
@@ -41,6 +42,9 @@ class Blockchain:
         for node in predefined_nodes:
             self.register_node(node)
 
+        # Synchronizuj łańcuch przy starcie
+        # self.synchronize_with_network()
+
         # Auto start synchronization thread
         # threading.Thread(target=self.synchronize_with_network, daemon=True).start()
             # Auto start monitoring ping
@@ -61,24 +65,70 @@ class Blockchain:
     def get_latest_block(self):
         return self.chain[-1]
 
-    def add_transaction(self, transaction):
-        if 'data' not in transaction or 'crc' not in transaction:
-            raise ValueError("Transaction must contain 'data' and 'crc' fields")
+    def add_transaction(self, transaction, sender_node=None):
+        if 'data' not in transaction or 'crc' not in transaction or 'transaction_id' not in transaction:
+            raise ValueError("Transaction must contain 'data', 'crc', and 'transaction_id' fields")
+
+        transaction_id = transaction['transaction_id']
+
+        # Sprawdź, czy transakcja została już przetworzona
+        if transaction_id in self.processed_transactions:
+            logger.info(f"[Port {self.port}] Transaction {transaction_id} already processed")
+            return True  # Transakcja została już przetworzona
+
+        # Sprawdź, czy transakcja już istnieje w pending_transactions
+        if any(tx['transaction_id'] == transaction_id for tx in self.pending_transactions):
+            logger.info(f"[Port {self.port}] Transaction {transaction_id} already in pending transactions")
+            return False
 
         logger.info(f"[Port {self.port}] Adding transaction: {transaction}")
 
         if self.vote_on_transaction(transaction):
             self.pending_transactions.append(transaction)
-            logger.info(f"[Port {self.port}] Transaction {transaction} added successfully!")
+            self.processed_transactions.add(transaction_id)  # Oznacz transakcję jako przetworzoną
+            logger.info(f"[Port {self.port}] Transaction {transaction_id} added successfully!")
+
+            # Propaguj transakcję do innych węzłów (oprócz sender_node)
+            for node in self.nodes:
+                if node != self.node_address and node != sender_node:  # Nie wysyłaj do siebie ani do nadawcy
+                    try:
+                        requests.post(f'http://{node}/transactions/new', json={'transaction': transaction})
+                        logger.info(f"[Port {self.port}] Transaction {transaction_id} propagated to {node}")
+                    except requests.exceptions.RequestException as e:
+                        logger.error(f"[Port {self.port}] Error propagating transaction {transaction_id} to {node}: {e}")
+
             return True
-        logger.info(f"[Port {self.port}] Transaction {transaction} rejected!")
+        logger.info(f"[Port {self.port}] Transaction {transaction_id} rejected!")
         return False
 
     def mine_pending_transactions(self):
+        logger.info(f"[Port {self.port}] Mining block with transactions: {self.pending_transactions}")
+
+        if not self.pending_transactions:
+            logger.info(f"[Port {self.port}] No transactions to mine")
+            return False
+
         block = Block(len(self.chain), self.get_latest_block().hash, self.pending_transactions)
         block.mine_block(self.difficulty)
         self.chain.append(block)
-        self.pending_transactions = []
+        self.pending_transactions = []  # Wyczyść oczekujące transakcje
+        self.processed_transactions.clear()  # Wyczyść przetworzone transakcje
+
+        logger.info(f"[Port {self.port}] New block mined: {block.to_dict()}")
+
+        # Propaguj blok do innych węzłów
+        for node in self.nodes:
+            if node != self.node_address:  # Nie wysyłaj do siebie
+                try:
+                    requests.post(f'http://{node}/blocks/new', json={'block': block.to_dict()})
+                    logger.info(f"[Port {self.port}] Block propagated to {node}")
+                except requests.exceptions.RequestException as e:
+                    logger.error(f"[Port {self.port}] Error propagating block to {node}: {e}")
+
+        # Synchronizuj łańcuch z siecią
+        self.synchronize_with_network()
+        return True
+
 
     def is_chain_valid(self, chain=None):
         chain = chain or self.chain
@@ -173,7 +223,6 @@ class Blockchain:
         return votes >= self.consensus_threshold
 
     def synchronize_with_network(self):
-        # time.sleep(10)  # Sleep 10 seconds
         longest_chain = None
         max_length = len(self.chain)
 
@@ -184,6 +233,7 @@ class Blockchain:
                     length = response.json()['length']
                     chain = response.json()['chain']
 
+                    # Konwersja łańcucha na listę obiektów Block
                     chain = [Block(block['index'], block['previous_hash'], block['transactions'], block['timestamp']) for block in chain]
                     for block in chain:
                         block.hash = block.calculate_hash()
@@ -198,21 +248,22 @@ class Blockchain:
 
         if longest_chain:
             self.chain = longest_chain
+            self.remove_duplicate_blocks_and_transactions()
             logger.info(f"[Port {self.port}] Blockchain synchronized with the longest chain from the network")
             return True
         else:
             logger.info(f"[Port {self.port}] No longer chain found, keeping the current chain")
             return False
         
-    def synchronize_after_start(self):
-        time.sleep(10)
-        while True:
-            if len(self.nodes) == 1:
-                self.get_active_nodes()
-                time.sleep(5)
-                self.synchronize_with_network()
-                if len(self.chain) > 1:
-                    break
+    # def synchronize_after_start(self):
+    #     time.sleep(10)
+    #     while True:
+    #         if len(self.nodes) == 1:
+    #             self.get_active_nodes()
+    #             time.sleep(5)
+    #             self.synchronize_with_network()
+    #             if len(self.chain) > 1:
+    #                 break
 
     # def ping_nodes(self):
     #         while True:
@@ -261,3 +312,37 @@ class Blockchain:
         self.isSimulatedCrcError = not self.isSimulatedCrcError
 
         return self.isSimulatedCrcError
+
+    def new_block(self, block_data):
+        block = Block(
+            index=block_data['index'],
+            previous_hash=block_data['previous_hash'],
+            transactions=block_data['transactions'],
+            timestamp=block_data['timestamp']
+        )
+
+        # Sprawdź, czy blok już istnieje w łańcuchu
+        if any(b.hash == block.hash for b in self.chain):
+            logger.info(f"[Port {self.port}] Block {block.hash} already in chain")
+            return False
+
+        self.chain.append(block)
+        logger.info(f"[Port {self.port}] New block added: {block.to_dict()}")
+        return True
+    
+
+    def remove_duplicate_blocks_and_transactions(self):
+        unique_blocks = []
+        unique_transactions = set()
+
+        for block in self.chain:
+            if block.hash not in [b.hash for b in unique_blocks]:
+                unique_blocks.append(block)
+                for transaction in block.transactions:
+                    if transaction['transaction_id'] not in unique_transactions:
+                        unique_transactions.add(transaction['transaction_id'])
+                    else:
+                        block.transactions.remove(transaction)
+
+        self.chain = unique_blocks
+        logger.info(f"[Port {self.port}] Removed duplicate blocks and transactions")

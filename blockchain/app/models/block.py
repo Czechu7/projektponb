@@ -28,3 +28,13 @@ class Block:
             self.nonce += 1
             self.hash = self.calculate_hash()
         logging.info(f"Block mined: {self.hash}, nonce: {self.nonce}, difficulty: {difficulty}")
+
+    def to_dict(self):
+        return {
+            'index': self.index,
+            'previous_hash': self.previous_hash,
+            'transactions': self.transactions,
+            'timestamp': self.timestamp,
+            'nonce': self.nonce,
+            'hash': self.hash
+        }

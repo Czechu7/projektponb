@@ -22,20 +22,28 @@ export class DocumentsService {
   }
 
   downloadFile(transaction: any) {
-    if (!transaction?.content) return;
+    if (!transaction?.data) return;
 
-    const byteCharacters = atob(transaction.content);
-    const byteNumbers = new Array(byteCharacters.length);
-    for (let i = 0; i < byteCharacters.length; i++) {
-      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    try {
+      // Use the Base64 data directly
+      const byteCharacters = atob(transaction.data);
+      const byteNumbers = new Array(byteCharacters.length);
+
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+
+      const byteArray = new Uint8Array(byteNumbers);
+      // For PDF files - adjust content type as needed
+      const blob = new Blob([byteArray], { type: 'application/pdf' });
+
+      const link = document.createElement('a');
+      link.href = window.URL.createObjectURL(blob);
+      link.download = transaction.fileName || 'document.pdf';
+      link.click();
+      window.URL.revokeObjectURL(link.href);
+    } catch (error) {
+      console.error('Error downloading file:', error);
     }
-    const byteArray = new Uint8Array(byteNumbers);
-    const blob = new Blob([byteArray]);
-
-    const link = document.createElement('a');
-    link.href = window.URL.createObjectURL(blob);
-    link.download = transaction.fileName || 'document';
-    link.click();
-    window.URL.revokeObjectURL(link.href);
   }
 }

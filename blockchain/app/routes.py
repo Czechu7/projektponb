@@ -24,6 +24,19 @@ def new_transaction():
         return jsonify({'message': 'Transaction added successfully!'}), 201
     else:
         return jsonify({'message': 'Transaction rejected!'}), 400
+    
+
+@bp.route('/transactions/sync', methods=['POST'])
+def sync_transactions():
+    values = request.get_json()
+    if not values or 'transactions' not in values:
+        return 'Invalid transactions data', 400
+
+    transactions = values['transactions']
+    blockchain.pending_transactions = transactions  # Zastąp listę transakcji
+
+    logging.info(f"[Port {blockchain.port}] Transactions list synchronized")
+    return jsonify({'message': 'Transactions list synchronized'}), 200
 
 # Routes for mining new blocks
 @bp.route('/mine', methods=['GET'])

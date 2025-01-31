@@ -46,7 +46,7 @@ class SignalRClient:
         print("Connection closed!")
 
 if __name__ == "__main__":
-    hub_url = "http://localhost:5000/blockchainHub"
+    hub_url = "http://localhost:4999/blockchainHub"
     client = SignalRClient(hub_url)
     client.start()
 

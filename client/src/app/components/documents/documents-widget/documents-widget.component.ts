@@ -5,6 +5,8 @@ import { PaginationModule } from 'ngx-bootstrap/pagination';
 import { ProgressbarModule } from 'ngx-bootstrap/progressbar';
 import { FileService } from '../../../_services/file.service';
 import { BlockchainService } from '../../../_services/blockchain.service';
+import { NodeService } from '../../../_services/node.service';
+import { DocumentsService } from '../../../_services/documents.service';
 
 
 @Component({
@@ -20,9 +22,11 @@ export class DocumentsWidgetComponent {
   selectedFile: File | null = null;
   private fileService= inject(FileService);
   private blockchainService = inject(BlockchainService);
-  documents: any;
+  private nodeService = inject(NodeService);
+  private documentsService = inject(DocumentsService);
+  //documents: any;
   nodeStatuses = this.blockchainService.nodeStatuses$;
-  
+  documents$ = this.documentsService.getMergedChain();
   transactions: any;
   //documents = signal<any[]>([]);
   uploadFile(): void {
@@ -32,12 +36,40 @@ export class DocumentsWidgetComponent {
       );
     }
   }
+  
+
   onFileSelected(event: any): void {
     const file: File = event.target.files[0]; 
     if (file) {
       this.selectedFile = file;
-      console.log('taki plik se wybrales', file);
     }
-  
+ }
+
+ corruptNode(node: any){
+  console.log("node", node);
+  this.nodeService.disableNode(node).subscribe(x =>
+    console.log("x", x)
+  )
+ }
+
+ corruptHash(node: any){
+  console.log("node", node);
+  this.nodeService.corruptHash(node).subscribe(x =>
+    console.log("x", x)
+  )
+ }
+
+ corruptFile(node: any){
+  console.log("node", node);
+  this.nodeService.corruptFile(node).subscribe(x =>
+    console.log("x", x)
+  )
+ }
+
+
+
+ downloadDocument(transaction: any) {
+  this.documentsService.downloadFile(transaction);
 }
+
 }

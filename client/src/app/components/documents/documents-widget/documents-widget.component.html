@@ -24,61 +24,70 @@
       </div>
     </div>
 
-    <!-- Document List Section -->
-    <div class="col-md-6 mb-4">
-      <div class="neu-card">
-        <h3>📋 Insurance Documents</h3>
-        <div class="document-list">
-          @for (doc of documents; track doc.id) {
-          <div class="neu-list-item">
-            <div class="d-flex justify-content-between align-items-center">
-              <div>
-                <span class="document-type-badge">{{doc.type}}</span>
-                <span class="ms-2">{{doc.name}}</span>
-              </div>
-              <div class="d-flex gap-2">
-                <button class="neu-button-sm" [class.verified]="doc.verified">
-                  <i class="fas fa-check-circle me-1"></i> Verify
-                </button>
-                <button class="neu-button-sm">
-                  <i class="fas fa-signature me-1"></i> Sign
-                </button>
-                <button class="neu-button-sm">
-                  <i class="fas fa-download me-1"></i> Download
-                </button>
-              </div>
-            </div>
-            <div class="document-meta mt-2">
-              <small>
-                <span class="me-3">📅 {{doc.date | date}}</span>
-                <span class="me-3">🔗 Block: {{doc.blockNumber}}</span>
-                <span class="verification-status" [class.verified]="doc.verified">
-                  {{doc.verified ? '✓ Verified' : '⏳ Pending Verification'}}
-                </span>
-              </small>
-            </div>
-          </div>
-          }
-        </div>
-        <pagination [totalItems]="totalItems" [itemsPerPage]="10"></pagination>
-      </div>
-    </div>
+   
 
     <!-- Blockchain Verification Section -->
     <div class="node-status">
       <h2>Node Statuses</h2>
       @for (node of nodeStatuses | async; track node.address) {
-        <div [class]="'node ' + node.status">
-          @if(node.status ==="active"){
-            🟢
-          }@else{
-            🔴
-          } {{ node.address }} - {{ node.status }}
-          <small>Last updated: {{ node.lastUpdate | date:'medium' }}</small>
+      <div style="margin-top: 10px" [class]="'node ' + node.status">
+        @if(node.status ==="active"){
+        🟢
+        }@else{
+        🔴
+        } {{ node.address }} - {{ node.status }}
+        <small>Last updated: {{ node.lastUpdate | date:'medium' }}</small>
+        <div style="display: inline; margin-left: 50px;">
+          <button class="btn btn-primary me-2" (click)="corruptNode(node)">
+            Disable
+          </button>
+          <button class="btn btn-primary me-2" (click)="corruptHash(node)">
+            Corrupt hash
+          </button>
+          <button class="btn btn-primary" (click)="corruptFile(node)">
+            Corrupt file
+          </button>
         </div>
+      </div>
       }
       @empty {
-        <div>No nodes available</div>
+      <div>No nodes available</div>
       }
+    </div>
+    <div class="document-list">
+      <h2>Blockchain documents</h2>
+      @if (documents$ | async; as chainData) {
+        @for (block of chainData.chain; track block.hash) {
+          <div class="neu-list-item">
+            <div class="d-flex justify-content-between align-items-center">
+              <div>
+                <span class="document-type-badge">Block {{block.index}}</span>
+                <span class="ms-2">{{block.hash}}</span>
+              </div>
+              <div class="document-meta">
+                <small>📅 {{block.timestamp | date:'medium'}}</small>
+              </div>
+            </div>
+            
+            @if (block.transactions === 'Genesis Block') {
+              <div class="mt-2">{{block.transactions}}</div>
+            } @else {
+              @if (block.transactions?.length) {
+                @for (transaction of block.transactions; track $index) {
+                  <div class="transaction-item mt-2">
+                    <button class="neu-button-sm" (click)="downloadDocument(transaction)">
+                      <i class="fas fa-download me-1"></i> Download Document
+                    </button>
+                  </div>
+                }
+              }
+            }
+          </div>
+        }
+      } @else {
+        <div class="neu-list-item">
+          <p>Loading blockchain data...</p>
+        </div>
+      }
+    </div>
   </div>
-</div>

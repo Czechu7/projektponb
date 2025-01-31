@@ -2,7 +2,10 @@
 using API.DTOs;
 using API.Services;
 using Microsoft.AspNetCore.Mvc;
+using System.Net.Http;
 using System.Net.Http.Json;
+using System.Text;
+using System.Xml.Linq;
 namespace API.Controllers;
 // API/Controllers/NodesController.cs
 [ApiController]
@@ -47,6 +50,14 @@ public class NodesController(NodeStatusService nodeStatusService) : ControllerBa
     [HttpPost("disableNode")]
     public async Task<IActionResult> DisableNode([FromBody] NodeStatus dto)
     {
+        var nodes = _nodeStatusService.GetAllNodeStatuses();
+
+        using var httpClient = new HttpClient();
+
+        var chainUrl = $"{dto.Address}/simulated-shutdown";
+        HttpContent content = new StringContent(" ", Encoding.UTF8, "application/json");
+        var response = await httpClient.PostAsync(chainUrl, content);
+
         return Ok();
     }
 

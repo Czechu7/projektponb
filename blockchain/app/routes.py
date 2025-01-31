@@ -88,6 +88,7 @@ def register_in_newtork():
 def consensus():
     replaced = blockchain.replace_chain()
     if replaced:
+        logging.info(f"[Port {blockchain.port}] Chain was replaced. New chain: {blockchain.chain}")
         return jsonify({
             'message': 'Our chain was replaced', 
             'new_chain': [{'index': block.index, 'previous_hash': block.previous_hash, 
@@ -95,6 +96,7 @@ def consensus():
                            'hash': block.hash} for block in blockchain.chain]
         }), 200
     else:
+        logging.info(f"[Port {blockchain.port}] Chain is authoritative. Current chain: {blockchain.chain}")
         return jsonify({
             'message': 'Our chain is authoritative', 
             'chain': [{'index': block.index, 'previous_hash': block.previous_hash, 
@@ -131,12 +133,12 @@ def vote():
     required_fields = ['transaction_id', 'document_id', 'document_type', 'timestamp', 'data', 'crc']
     for field in required_fields:
         if field not in transaction:
-            logging.info(f"[Node {node_identifier}] Missing field: {field}")
+            logging.warning(f"[Node {node_identifier}] Missing field: {field}")
             return jsonify({'vote': 'no', 'reason': f'Missing field: {field}'}), 400
 
     calculated_crc = zlib.crc32(transaction['data'].encode('utf-8'))
     if calculated_crc != transaction['crc']:
-        logging.info(f"[Node {node_identifier}] CRC mismatch: calculated {calculated_crc}, received {transaction['crc']}")
+        logging.warning(f"[Node {node_identifier}] CRC mismatch: calculated {calculated_crc}, received {transaction['crc']}")
         return jsonify({'vote': 'no', 'reason': 'CRC mismatch'}), 400
 
     logging.info(f"[Node {node_identifier}] Transaction approved")

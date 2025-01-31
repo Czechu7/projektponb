@@ -62,6 +62,11 @@ class Blockchain:
         return self.chain[-1]
 
     def add_transaction(self, transaction):
+        if 'data' not in transaction or 'crc' not in transaction:
+            raise ValueError("Transaction must contain 'data' and 'crc' fields")
+
+        logger.info(f"[Port {self.port}] Adding transaction: {transaction}")
+
         if self.vote_on_transaction(transaction):
             self.pending_transactions.append(transaction)
             logger.info(f"[Port {self.port}] Transaction {transaction} added successfully!")
@@ -107,40 +112,37 @@ class Blockchain:
             self.nodes.remove(address)
             logger.info(f"[Port {self.port}] Node {address} removed from the network")
 
-    def replace_chain(self, new_chain=None):
-        if new_chain:
-            chain = [Block(block['index'], block['previous_hash'], block['transactions'], block['timestamp']) for block in new_chain]
-            for block in chain:
-                block.hash = block.calculate_hash()
-            if self.is_chain_valid(chain):
-                self.chain = chain
-                return True
-            return False
-
-        network = self.nodes
+    def replace_chain(self):
         longest_chain = None
         max_length = len(self.chain)
 
-        for node in network:
-            response = requests.get(f'http://{node}/chain')
+        for node in self.nodes:
+            try:
+                response = requests.get(f'http://{node}/chain')
+                if response.status_code == 200:
+                    length = response.json()['length']
+                    chain = response.json()['chain']
 
-            if response.status_code == 200:
-                length = response.json()['length']
-                chain = response.json()['chain']
+                    # Konwersja łańcucha na listę obiektów Block
+                    chain = [Block(block['index'], block['previous_hash'], block['transactions'], block['timestamp']) for block in chain]
+                    for block in chain:
+                        block.hash = block.calculate_hash()
 
-                chain = [Block(block['index'], block['previous_hash'], block['transactions'], block['timestamp']) for block in chain]
-                for block in chain:
-                    block.hash = block.calculate_hash()
+                    if length > max_length and self.is_chain_valid(chain):
+                        max_length = length
+                        longest_chain = chain
+                        logger.info(f"[Port {self.port}] Found a longer chain from node {node} with length {length}")
 
-                if length > max_length and self.is_chain_valid(chain):
-                    max_length = length
-                    longest_chain = chain
+            except requests.exceptions.RequestException as e:
+                logger.error(f"[Port {self.port}] Error synchronizing with node {node}: {e}")
 
         if longest_chain:
             self.chain = longest_chain
+            logger.info(f"[Port {self.port}] Blockchain synchronized with the longest chain from the network")
             return True
-
-        return False
+        else:
+            logger.info(f"[Port {self.port}] No longer chain found, keeping the current chain")
+            return False
 
     def vote_on_transaction(self, transaction):
         transaction_data = transaction['data']

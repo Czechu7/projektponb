@@ -30,7 +30,7 @@ class FileUploadHub:
         logger.info(f"Otrzymano plik: wazne: {self.blockchain.node_address}")
 
         try:
-            file_data, checksum = data
+            file_name, file_data, checksum = data
 
             transaction = {
                 "transaction_id": "9",
@@ -38,7 +38,7 @@ class FileUploadHub:
                 "document_type": "jpg",
                 "timestamp": "15-15-10.10.2024",
                 "data": file_data,
-                "signature": "amarena",
+                "signature": file_name,
                 "crc": zlib.crc32(file_data.encode('utf-8'))
             }
 

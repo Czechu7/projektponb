@@ -36,4 +36,11 @@ export class NodeService {
         })
       )
   }
+  corruptFileFix(model: any){
+    return this.http.post<any>(this.baseUrl + "nodes/corruptFileFix", model).pipe(
+        map(user =>{
+            console.log("user", user);
+        })
+      )
+  }
 }

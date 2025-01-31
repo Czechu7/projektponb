@@ -29,6 +29,11 @@ namespace API.Controllers
             }
 
             string checksum;
+            var guidSuffix = Guid.NewGuid().ToString().Substring(0, 8);
+            var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(file.FileName);
+            var fileExtension = Path.GetExtension(file.FileName);
+
+            var newFileName = $"{fileNameWithoutExtension}_{guidSuffix}{fileExtension}";
             using (var sha256 = SHA256.Create())
             {
                 await using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
@@ -36,13 +41,13 @@ namespace API.Controllers
                 checksum = BitConverter.ToString(hashBytes).Replace("-", "").ToLower();
                 byte[] fileBytes = await System.IO.File.ReadAllBytesAsync(filePath);
                 string fileBase64 = Convert.ToBase64String(fileBytes);
-                await _hubContext.Clients.All.SendAsync("UploadFile", fileBase64, checksum);
+                await _hubContext.Clients.All.SendAsync("UploadFile",newFileName, fileBase64, checksum);
 
             }
 
             var fileEntity = new FileEntity
             {
-                FileName = file.FileName,
+                FileName = newFileName,
                 FilePath = filePath,
                 Checksum = checksum,
                 SizeInBytes = file.Length,

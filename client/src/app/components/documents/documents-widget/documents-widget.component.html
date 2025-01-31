@@ -42,10 +42,13 @@
             Disable
           </button>
           <button class="btn btn-primary me-2" (click)="corruptHash(node)">
+            Corrupt file
+          </button>
+          <button class="btn btn-primary me-2" (click)="corruptFile(node)">
             Corrupt hash
           </button>
-          <button class="btn btn-primary" (click)="corruptFile(node)">
-            Corrupt file
+          <button class="btn btn-primary" (click)="corruptFileFix(node)">
+            Corrupt hash fix
           </button>
         </div>
       </div>
@@ -62,11 +65,13 @@
             <div class="d-flex justify-content-between align-items-center">
               <div>
                 <span class="document-type-badge">Block {{block.index}}</span>
-                <span class="ms-2">{{block.hash}}</span>
+                <span class="ms-2">Hash {{block.hash}}</span>
+                <br>
+                
               </div>
-              <div class="document-meta">
+              <!-- <div class="document-meta">
                 <small>📅 {{block.timestamp | date:'medium'}}</small>
-              </div>
+              </div> -->
             </div>
             
             @if (block.transactions === 'Genesis Block') {
@@ -75,9 +80,13 @@
               @if (block.transactions?.length) {
                 @for (transaction of block.transactions; track $index) {
                   <div class="transaction-item mt-2">
-                    <button class="neu-button-sm" (click)="downloadDocument(transaction)">
+                    @if(block.hash !== "corrupted"){<button class="neu-button-sm" (click)="downloadDocument(transaction)">
                       <i class="fas fa-download me-1"></i> Download Document
                     </button>
+                  }@else{
+                    ⚠️
+                  }
+                    
                   </div>
                 }
               }

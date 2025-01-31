@@ -66,9 +66,15 @@ export class DocumentsWidgetComponent {
   )
  }
 
-
+ corruptFileFix(node: any){
+  console.log("node", node);
+  this.nodeService.corruptFileFix(node).subscribe(x =>
+    console.log("x", x)
+  )
+ }
 
  downloadDocument(transaction: any) {
+  
   this.documentsService.downloadFile(transaction);
 }
 

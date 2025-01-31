@@ -6,7 +6,7 @@ from .block import Block
 import argparse
 from .node_monitor import NodeMonitor
 import threading
-
+import random
 parser = argparse.ArgumentParser()
 parser.add_argument('--port', type=int, default=5001)
 args = parser.parse_args()
@@ -33,7 +33,9 @@ class Blockchain:
             "127.0.0.1:5006"
         ]
 
-        self.consensus_threshold = len(predefined_nodes) // 2 + 1
+        self.consensus_threshold = len(self.nodes)  // 2 + 1
+        logger.info(f"selkf nodes ********* {self.nodes}")
+
         self.node_failures = {node: 0 for node in predefined_nodes}
 
         self.isSimulatedCrcError = False
@@ -267,3 +269,49 @@ class Blockchain:
         self.isSimulatedCrcError = not self.isSimulatedCrcError
 
         return self.isSimulatedCrcError
+    
+    def simulated_hash_error(self):
+        self.isSimulatedhashError = not self.isSimulatedhashError
+
+        return self.isSimulatedhashError
+    
+    def corrupt_random_block(self):
+        if len(self.chain) < 2:
+            logger.info("[Port {}] Not enough blocks to corrupt.".format(self.port))
+            return
+
+        corrupted_index = random.randint(1, len(self.chain) - 1)  
+        self.chain[corrupted_index].hash = "corrupted"
+        logger.warning(f"[Port {self.port}] Block {corrupted_index} has been corrupted!")
+
+    def rehash_chain(self):
+        """
+        Recalculates the hashes for all blocks in the chain to correct any corrupted hashes.
+        """
+        logger.warning(f"[Port {self.port}] Rehashing the entire blockchain due to corruption!")
+        for i in range(1, len(self.chain)):
+            self.chain[i].previous_hash = self.chain[i - 1].hash
+            self.chain[i].hash = self.chain[i].calculate_hash()
+
+        logger.info(f"[Port {self.port}] Blockchain rehashed successfully!")
+
+    def is_chain_valid(self, chain=None):
+        """
+        Validates the blockchain. If a corrupted hash is found, it triggers a rehash.
+        """
+        chain = chain or self.chain
+        for i in range(1, len(chain)):
+            current_block = chain[i]
+            previous_block = chain[i - 1]
+
+            if current_block.hash != current_block.calculate_hash():
+                logger.error(f"[Port {self.port}] Corrupted hash detected in Block {current_block.index}! Rehashing...")
+                self.rehash_chain()
+                return False
+
+            if current_block.previous_hash != previous_block.hash:
+                logger.error(f"[Port {self.port}] Invalid previous hash in Block {current_block.index}! Rehashing...")
+                self.rehash_chain()
+                return False
+
+        return True

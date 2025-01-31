@@ -182,7 +182,20 @@ def simulated_crc_error():
         return jsonify({'status': True, 'message': 'CRC error simulation enabled'}), 200
     else:
         return jsonify({'status': False, 'message': 'CRC error simulation disabled'}), 200
+# CRC ERROR
+@bp.route('/simulated-hash', methods=['POST'])
+def simulated_hash_error():
+    if blockchain.corrupt_random_block():
+        return jsonify({'status': True, 'message': 'CRC error simulation enabled'}), 200
+    else:
+        return jsonify({'status': False, 'message': 'CRC error simulation disabled'}), 200
     
+@bp.route('/simulated-hash-fix', methods=['POST'])
+def simulated_hash_fix_error():
+    if blockchain.is_chain_valid():
+        return jsonify({'status': True, 'message': 'CRC error simulation enabled'}), 200
+    else:
+        return jsonify({'status': False, 'message': 'CRC error simulation disabled'}), 200
 # SHUTDOWN
 @bp.route('/simulated-shutdown', methods=['POST'])
 def shutdown():

@@ -145,6 +145,39 @@ class Blockchain:
             logger.info(f"[Port {self.port}] No longer chain found, keeping the current chain")
             return False
 
+    # def vote_on_transaction(self, transaction):
+    #     transaction_data = transaction['data']
+
+    #     if self.isSimulatedCrcError:
+    #         calculated_crc = '123123123123'
+    #     else:
+    #         calculated_crc = zlib.crc32(transaction_data.encode('utf-8'))
+
+    #     if calculated_crc != transaction['crc']:
+    #         # logger.info(f"[Port {self.port}] Transaction {transaction} rejected due to CRC mismatch!")
+    #         logger.info(f"[Port {self.port}] Transaction rejected due to CRC mismatch!")
+    #         return False
+
+    #     votes = 0
+    #     for node in self.nodes:
+    #         response = requests.post(f'http://{node}/vote', json={'transaction': transaction})
+    #         if response.status_code == 200 and response.json().get('vote') == 'yes':
+    #             votes += 1
+    #             # logger.info(f"[Port {self.port}] Node {node} voted YES for transaction {transaction}")
+    #             logger.info(f"[Port {self.port}] Node {node} voted YES for transaction")
+    #         else:
+    #             # logger.info(f"[Port {self.port}] Node {node} voted NO for transaction {transaction}")
+    #             logger.info(f"[Port {self.port}] Node {node} voted NO for transaction")
+
+    #     if votes >= self.consensus_threshold:
+    #         # logger.info(f"[Port {self.port}] Transaction {transaction} approved with {votes} votes")
+    #         logger.info(f"[Port {self.port}] Transaction approved with {votes} votes")
+    #     else:
+    #         # logger.info(f"[Port {self.port}] Transaction {transaction} rejected with {votes} votes")
+    #         logger.info(f"[Port {self.port}] Transaction rejected with {votes} votes")
+
+    #     return votes >= self.consensus_threshold
+
     def vote_on_transaction(self, transaction):
         transaction_data = transaction['data']
 
@@ -154,29 +187,29 @@ class Blockchain:
             calculated_crc = zlib.crc32(transaction_data.encode('utf-8'))
 
         if calculated_crc != transaction['crc']:
-            # logger.info(f"[Port {self.port}] Transaction {transaction} rejected due to CRC mismatch!")
             logger.info(f"[Port {self.port}] Transaction rejected due to CRC mismatch!")
             return False
 
         votes = 0
         for node in self.nodes:
-            response = requests.post(f'http://{node}/vote', json={'transaction': transaction})
-            if response.status_code == 200 and response.json().get('vote') == 'yes':
-                votes += 1
-                # logger.info(f"[Port {self.port}] Node {node} voted YES for transaction {transaction}")
-                logger.info(f"[Port {self.port}] Node {node} voted YES for transaction")
-            else:
-                # logger.info(f"[Port {self.port}] Node {node} voted NO for transaction {transaction}")
-                logger.info(f"[Port {self.port}] Node {node} voted NO for transaction")
-
+            try:
+                response = requests.post(f'http://{node}/vote', json={'transaction': transaction}, timeout=3)
+                if response.status_code == 200 and response.json().get('vote') == 'yes':
+                    votes += 1
+                    logger.info(f"[Port {self.port}] Node {node} voted YES for transaction")
+                else:
+                    logger.info(f"[Port {self.port}] Node {node} voted NO for transaction")
+            except requests.exceptions.RequestException as e:
+                logger.error(f"[Port {self.port}] Error voting with node {node}: {e}")
+        
         if votes >= self.consensus_threshold:
-            # logger.info(f"[Port {self.port}] Transaction {transaction} approved with {votes} votes")
             logger.info(f"[Port {self.port}] Transaction approved with {votes} votes")
+            return True
         else:
-            # logger.info(f"[Port {self.port}] Transaction {transaction} rejected with {votes} votes")
             logger.info(f"[Port {self.port}] Transaction rejected with {votes} votes")
+            return False
 
-        return votes >= self.consensus_threshold
+
 
     def synchronize_with_network(self):
         # time.sleep(10)  # Sleep 10 seconds

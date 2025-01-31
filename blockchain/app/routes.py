@@ -186,9 +186,9 @@ def simulated_crc_error():
 @bp.route('/simulated-hash', methods=['POST'])
 def simulated_hash_error():
     if blockchain.corrupt_random_block():
-        return jsonify({'status': True, 'message': 'CRC error simulation enabled'}), 200
+        return jsonify({'status': True, 'message': 'Hash error simulation enabled'}), 200
     else:
-        return jsonify({'status': False, 'message': 'CRC error simulation disabled'}), 200
+        return jsonify({'status': False, 'message': 'Hash error simulation disabled'}), 200
     
 @bp.route('/simulated-hash-fix', methods=['POST'])
 def simulated_hash_fix_error():

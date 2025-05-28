@@ -80,13 +80,16 @@
               @if (block.transactions?.length) {
                 @for (transaction of block.transactions; track $index) {
                   <div class="transaction-item mt-2">
-                    @if(block.hash !== "corrupted"){<button class="neu-button-sm" (click)="downloadDocument(transaction)">
-                      <i class="fas fa-download me-1"></i> Download Document
-                    </button>
-                  }@else{
-                    ⚠️
-                  }
-                    
+                    @if(block.hash !== "corrupted"){
+                      <button class="neu-button-sm me-2" (click)="downloadDocument(transaction)">
+                        <i class="fas fa-download me-1"></i> Download Document
+                      </button>
+                      <button class="neu-button-sm" (click)="createTorrent(transaction)">
+                        <i class="fas fa-magnet me-1"></i> Create Torrent
+                      </button>
+                    }@else{
+                      ⚠️
+                    }
                   </div>
                 }
               }

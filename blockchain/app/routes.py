@@ -1,16 +1,22 @@
 import requests
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, after_this_request, send_file  
 import zlib
 from .models.blockchain import Blockchain
 import argparse
 import os
 import signal
 import logging
+from .models.torrent import TorrentManager
+import base64
+import bencodepy
 
 bp = Blueprint('blockchain', __name__)
 blockchain = Blockchain()
 
-# Routes for adding new transactions
+
+torrent_manager = TorrentManager(blockchain)
+
+
 @bp.route('/transactions/new', methods=['POST'])
 def new_transaction():
     values = request.get_json()
@@ -25,7 +31,7 @@ def new_transaction():
     else:
         return jsonify({'message': 'Transaction rejected!'}), 400
 
-# Routes for mining new blocks
+
 @bp.route('/mine', methods=['GET'])
 def mine():
     blockchain.mine_pending_transactions()
@@ -43,7 +49,7 @@ def mine():
 
     return jsonify(response)
 
-# Routes for getting the full chain
+
 @bp.route('/chain', methods=['GET'])
 def full_chain():
     chain_data = [{
@@ -56,7 +62,7 @@ def full_chain():
 
     return jsonify({'chain': chain_data, 'length': len(blockchain.chain)})
 
-# Routes for registering nodes
+
 @bp.route('/nodes/register', methods=['POST'])
 def register_nodes():
     values = request.get_json()
@@ -72,7 +78,7 @@ def register_nodes():
 
 
 
-# Routes for registering nodes
+
 @bp.route('/register_in_network', methods=['POST'])
 def register_in_newtork():
     values = request.get_json()
@@ -83,7 +89,7 @@ def register_in_newtork():
 
     return jsonify({'message': 'Nodes added successfully!', 'total_nodes': list(blockchain.nodes)})
 
-# Routes for consensus algorithm
+
 @bp.route('/nodes/resolve', methods=['GET'])
 def consensus():
     replaced = blockchain.replace_chain()
@@ -104,21 +110,21 @@ def consensus():
                        'hash': block.hash} for block in blockchain.chain]
         }), 200
 
-# Routes for inicializing new node with network
+
 @bp.route('/sync', methods=['POST'])
 def sync():
-    # values = request.get_json()
-    # if not values or 'blocks' not in values:
-    #     return 'Invalid blockchain data', 400
+    
+    
+    
 
-    # new_chain = values['blocks']
+    
     if blockchain.synchronize_with_network():
         return jsonify({'message': 'Blockchain synchronized with the longest chain from the network'}), 200
     else:
         return jsonify({'message': 'No longer chain found, keeping the current chain'}), 400
 
 
-# Routes for voting on transactions
+
 @bp.route('/vote', methods=['POST'])
 def vote():
     node_identifier = request.remote_addr
@@ -128,7 +134,7 @@ def vote():
         return jsonify({'vote': 'no'}), 400
 
     transaction = values['transaction']
-    # logging.info(f"[Node {node_identifier}] Transaction received: {transaction}")
+    
     logging.info(f"[Node {node_identifier}] Transaction received:")
     
     required_fields = ['transaction_id', 'document_id', 'document_type', 'timestamp', 'data', 'crc']
@@ -146,13 +152,13 @@ def vote():
     return jsonify({'vote': 'yes'}), 200
 
 
-# Routes for master election
+
 @bp.route('/elect_master', methods=['POST'])
 def elect_master():
     blockchain.is_master = True
     return jsonify({'message': 'This node is now the master'}), 200
 
-# Routes for new master notification
+
 @bp.route('/notify_master', methods=['POST'])
 def notify_master():
     values = request.get_json()
@@ -162,27 +168,27 @@ def notify_master():
     blockchain.master_url = values['master_url']
     return jsonify({'message': 'Master updated'}), 200
 
-# Routes for getting all nodes
+
 @bp.route('/nodes', methods=['GET'])
 def get_nodes():
     return jsonify({'nodes': list(blockchain.nodes)}), 200
 
-# Routes for getting the master node
+
 @bp.route('/ping', methods=['POST'])
 def ping():
     return jsonify({'message': 'pong'}), 200
 
 
 
-# SEKCJA SYMULACJI BLEDOW
-# CRC ERROR
+
+
 @bp.route('/simulated-crc-error', methods=['POST'])
 def simulated_crc_error():
     if blockchain.simulated_crc_error():
         return jsonify({'status': True, 'message': 'CRC error simulation enabled'}), 200
     else:
         return jsonify({'status': False, 'message': 'CRC error simulation disabled'}), 200
-# CRC ERROR
+
 @bp.route('/simulated-hash', methods=['POST'])
 def simulated_hash_error():
     if blockchain.corrupt_random_block():
@@ -196,9 +202,288 @@ def simulated_hash_fix_error():
         return jsonify({'status': True, 'message': 'Hash fix error simulation enabled'}), 200
     else:
         return jsonify({'status': False, 'message': 'Hash fix error simulation disabled'}), 200
-# SHUTDOWN
+
 @bp.route('/simulated-shutdown', methods=['POST'])
 def shutdown():
     pid = os.getpid()
     os.kill(pid, signal.SIGTERM)
     return jsonify({'message': 'Server shutting down...'}), 200
+
+
+@bp.route('/torrent/create/<transaction_id>', methods=['GET'])
+def create_torrent(transaction_id):
+    result = torrent_manager.create_torrent(transaction_id)
+    if result:
+        torrent, torrent_file_path = result
+        return jsonify({
+            'message': 'Torrent created successfully',
+            'torrent': torrent.to_dict(),
+            'torrent_file_path': torrent_file_path
+        }), 200
+    else:
+        return jsonify({'message': 'Failed to create torrent'}), 400
+
+
+@bp.route('/torrent/<file_id>', methods=['GET'])
+def get_torrent(file_id):
+    torrent = torrent_manager.get_torrent(file_id)
+    if torrent:
+        return jsonify(torrent.to_dict()), 200
+    else:
+        return jsonify({'message': 'Torrent not found'}), 404
+
+
+@bp.route('/torrent/store_chunk', methods=['POST'])
+def store_chunk():
+    data = request.get_json()
+    
+    
+    required = ['file_id', 'chunk_index', 'chunk_data', 'chunk_hash']
+    if not all(k in data for k in required):
+        return jsonify({'message': 'Missing required fields'}), 400
+        
+    
+    is_base64 = data.get('is_base64', False)
+    
+    
+    success = torrent_manager.store_chunk(
+        data['file_id'], 
+        data['chunk_index'], 
+        data['chunk_data'],
+        data['chunk_hash'],
+        is_base64
+    )
+    
+    if success:
+        return jsonify({'message': 'Chunk stored successfully'}), 201
+    else:
+        return jsonify({'message': 'Failed to store chunk (hash mismatch)'}), 400
+
+
+@bp.route('/torrent/chunk/<file_id>/<int:chunk_index>', methods=['GET'])
+def get_chunk(file_id, chunk_index):
+    chunk = torrent_manager.get_chunk(file_id, chunk_index)
+    if chunk:
+        if isinstance(chunk, bytes):
+            chunk = base64.b64encode(chunk).decode('utf-8')
+        return jsonify({
+            'file_id': file_id,
+            'chunk_index': chunk_index,
+            'chunk_data': chunk
+        }), 200
+    else:
+        return jsonify({'message': 'Chunk not found'}), 404
+
+
+@bp.route('/torrent/download/<file_id>', methods=['GET'])
+def download_file_torrent(file_id):
+    torrent = torrent_manager.get_torrent(file_id)
+    if not torrent:
+        return jsonify({'message': 'Torrent not found'}), 404
+        
+    
+    assembled_file = b''
+    for i in range(torrent.total_chunks):
+        
+        chunk = torrent_manager.get_chunk(file_id, i)
+        
+        
+        if not chunk and i in torrent.nodes:
+            for node in torrent.nodes[i]:
+                try:
+                    response = requests.get(f"http://{node}/torrent/chunk/{file_id}/{i}")
+                    if response.status_code == 200:
+                        chunk_data = response.json()['chunk_data']
+                        
+                        torrent_manager.store_chunk(
+                            file_id, 
+                            i, 
+                            chunk_data,
+                            next((c['hash'] for c in torrent.chunks if c['id'] == i), None)
+                        )
+                        chunk = chunk_data
+                        break
+                except Exception as e:
+                    
+                    continue
+        
+        if not chunk:
+            return jsonify({'message': f'Chunk {i} not found in network'}), 404
+            
+        
+        if isinstance(chunk, str):
+            chunk = chunk.encode('utf-8')
+        assembled_file += chunk
+    
+    
+    from flask import send_file
+    import tempfile
+    import os
+    
+    temp = tempfile.NamedTemporaryFile(delete=False)
+    temp.write(assembled_file)
+    temp.close()
+    
+    @after_this_request
+    def remove_file(response):
+        os.unlink(temp.name)
+        return response
+        
+    return send_file(
+        temp.name,
+        as_attachment=True,
+        download_name=torrent.file_name,
+        mimetype='application/octet-stream'
+    )
+
+
+@bp.route('/torrent/file/<file_id>', methods=['GET'])
+def download_torrent_file(file_id):
+    """Pobiera plik .torrent do użycia w kliencie BitTorrent"""
+    try:
+        
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        project_root = os.path.dirname(current_dir)  
+        torrents_dir = os.path.join(project_root, "torrents")
+        torrent_path = os.path.join(torrents_dir, f"{file_id}.torrent")
+        
+        print(f"DEBUG: Looking for torrent at: {torrent_path}")
+        print(f"DEBUG: Directory exists: {os.path.exists(torrents_dir)}")
+        print(f"DEBUG: File exists: {os.path.exists(torrent_path)}")
+        
+        if os.path.exists(torrent_path):
+            
+            torrent = torrent_manager.get_torrent(file_id)
+            download_name = f"{torrent.file_name}.torrent" if torrent else f"{file_id}.torrent"
+            
+            return send_file(
+                torrent_path,
+                as_attachment=True,
+                download_name=download_name,
+                mimetype='application/x-bittorrent'
+            )
+        
+        
+        torrent = torrent_manager.get_torrent(file_id)
+        if not torrent:
+            return jsonify({'message': 'Torrent not found'}), 404
+        
+        
+        result = torrent.save_to_file(torrents_dir)
+        
+        if result and len(result) >= 1 and result[0]:
+            generated_path = result[0]
+            download_name = f"{torrent.file_name}.torrent"
+            
+            return send_file(
+                generated_path,
+                as_attachment=True,
+                download_name=download_name,
+                mimetype='application/x-bittorrent'
+            )
+        else:
+            return jsonify({'message': 'Failed to generate torrent file'}), 500
+        
+    except Exception as e:
+        print(f"ERROR: {e}")
+        return jsonify({'message': f'Error: {str(e)}'}), 500
+
+
+@bp.route('/announce', methods=['GET'])
+def tracker_announce():
+    info_hash = request.args.get('info_hash')
+    peer_id = request.args.get('peer_id')
+    port = request.args.get('port')
+    
+    if not info_hash or not peer_id or not port:
+        return 'Missing required parameters', 400
+    
+    
+    client_ip = request.remote_addr
+    
+    
+    response_dict = {
+        b'interval': 1800,
+        b'min interval': 900,
+        b'complete': len(blockchain.nodes),
+        b'incomplete': 0
+    }
+    
+    
+    peers_list = []
+    for node in blockchain.nodes:
+        try:
+            if ':' in node:
+                host, node_port = node.split(':')
+                
+                peers_list.append({
+                    b'ip': host.encode('utf-8'),
+                    
+                    b'port': 6881,  
+                    b'peer id': b'blockchain_peer_' + host.encode('utf-8')
+                })
+        except Exception as e:
+            continue
+    
+    
+    peers_list.append({
+        b'ip': request.host.split(':')[0].encode('utf-8'),
+        b'port': 6881,  
+        b'peer id': b'blockchain_self_' + request.host.split(':')[0].encode('utf-8')
+    })
+    
+    response_dict[b'peers'] = peers_list
+    
+    try:
+        encoded_response = bencodepy.encode(response_dict)
+        return encoded_response, 200, {'Content-Type': 'text/plain'}
+    except Exception as e:
+        
+        return 'Internal server error', 500
+    
+    
+@bp.route('/piece/<int:piece_index>', methods=['GET'])
+def get_piece(piece_index):
+    """Endpoint dla klientów BitTorrent do pobierania kawałków pliku"""
+    
+    info_hash = request.args.get('info_hash')
+    
+    if not info_hash:
+        return 'Missing info_hash parameter', 400
+        
+    
+    if not all(c in '0123456789abcdefABCDEF' for c in info_hash):
+        info_hash = info_hash.encode('latin1').hex()
+    
+    
+    file_id = torrent_manager.info_hash_to_file_id.get(info_hash)
+    
+    if file_id:
+        chunk = torrent_manager.get_chunk(file_id, piece_index)
+        if chunk:
+            if isinstance(chunk, str):
+                chunk = chunk.encode('utf-8')
+            return chunk, 200, {'Content-Type': 'application/octet-stream'}
+    else:
+        
+        for file_id, torrent in torrent_manager.torrents.items():
+            chunk = torrent_manager.get_chunk(file_id, piece_index)
+            if chunk:
+                if isinstance(chunk, str):
+                    chunk = chunk.encode('utf-8')
+                return chunk, 200, {'Content-Type': 'application/octet-stream'}
+    
+    return 'Piece not found', 404
+
+
+@bp.route('/have/<int:piece_index>', methods=['GET'])
+def have_piece(piece_index):
+    """Sprawdza czy node ma dany kawałek"""
+    info_hash = request.args.get('info_hash')
+    
+    for file_id, torrent in torrent_manager.torrents.items():
+        chunk = torrent_manager.get_chunk(file_id, piece_index)
+        if chunk:
+            return jsonify({'have': True}), 200
+    
+    return jsonify({'have': False}), 200

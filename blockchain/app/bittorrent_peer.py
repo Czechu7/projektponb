@@ -98,24 +98,45 @@ class BitTorrentPeer:
             return
         
         
-        pieces = bytearray((torrent.total_chunks + 7) // 8)
-        have_pieces = 0
-        for i in range(torrent.total_chunks):
-            chunk = self.torrent_manager.get_chunk(file_id, i)
-            if chunk:
-                pieces[i // 8] |= (1 << (7 - (i % 8)))
-                have_pieces += 1
+        original_file_data = torrent.get_original_file_data()
+        if not original_file_data:
+            logger.error(f"No original file data found for {file_id}")
+            return
         
         
-        if have_pieces > 0:
-            logger.info(f"Sending bitfield with {have_pieces}/{torrent.total_chunks} pieces")
-            msg = struct.pack(">IB", len(pieces) + 1, 5) + pieces
+        actual_chunks = (len(original_file_data) + torrent.chunk_size - 1) // torrent.chunk_size
+        logger.info(f"Using original file data: {len(original_file_data)} bytes, {actual_chunks} chunks")
+        
+        
+        pieces = bytearray((actual_chunks + 7) // 8)
+        for i in range(actual_chunks):
+            pieces[i // 8] |= (1 << (7 - (i % 8)))
+        
+        logger.info(f"Sending bitfield with {actual_chunks}/{actual_chunks} pieces")
+        msg = struct.pack(">IB", len(pieces) + 1, 5) + pieces
+        
+        try:
             sock.sendall(msg)
-        else:
-            logger.warning("No pieces available to share!")
-            
+        except Exception as e:
+            logger.error(f"Failed to send bitfield: {e}")
+            return
+        
+        
+        for i in range(actual_chunks):
+            try:
+                have_msg = struct.pack(">IBI", 5, 4, i)
+                sock.sendall(have_msg)
+                logger.debug(f"Sent HAVE message for piece {i}")
+            except Exception as e:
+                logger.error(f"Failed to send HAVE for piece {i}: {e}")
+                return
+        
+        
         while True:
             try:
+                
+                sock.settimeout(30.0)  
+                
                 
                 length_prefix = sock.recv(4)
                 if not length_prefix or len(length_prefix) < 4:
@@ -128,11 +149,16 @@ class BitTorrentPeer:
                 if length == 0:
                     logger.debug("Received keep-alive")
                     continue
-                    
+                
+                
+                if length > 1024*1024:  
+                    logger.error(f"Message too large: {length} bytes")
+                    break
+                
                 
                 message = sock.recv(length)
-                if not message:
-                    logger.info("Connection closed during message read")
+                if not message or len(message) != length:
+                    logger.info("Connection closed during message read or incomplete message")
                     break
                     
                 msg_id = message[0]
@@ -144,9 +170,12 @@ class BitTorrentPeer:
                 elif msg_id == 1:  
                     logger.debug("Received unchoke")
                 elif msg_id == 2:  
-                    
                     logger.info("Received interested, sending unchoke")
-                    sock.sendall(struct.pack(">IB", 1, 1))  
+                    try:
+                        sock.sendall(struct.pack(">IB", 1, 1))  
+                    except Exception as e:
+                        logger.error(f"Failed to send unchoke: {e}")
+                        break
                 elif msg_id == 3:  
                     logger.debug("Received not interested")
                 elif msg_id == 4:  
@@ -154,31 +183,41 @@ class BitTorrentPeer:
                 elif msg_id == 5:  
                     logger.debug("Received bitfield")
                 elif msg_id == 6:  
-                    if len(message) >= 13:  
+                    if len(message) >= 13:
                         index, begin, req_length = struct.unpack(">III", message[1:13])
                         logger.info(f"Received request for piece {index}, offset {begin}, length {req_length}")
                         
                         
-                        chunk = self.torrent_manager.get_chunk(file_id, index)
-                        if chunk:
+                        if index >= actual_chunks:
+                            logger.error(f"Invalid piece index {index}, max is {actual_chunks-1}")
+                            continue
+                        
+                        
+                        piece_start = index * torrent.chunk_size
+                        piece_end = min(piece_start + torrent.chunk_size, len(original_file_data))
+                        
+                        if piece_start < len(original_file_data):
                             
-                            if isinstance(chunk, str):
-                                chunk = chunk.encode('utf-8')
-                                
+                            piece_data = original_file_data[piece_start:piece_end]
                             
-                            if begin < len(chunk) and begin + req_length <= len(chunk):
-                                piece_data = chunk[begin:begin+req_length]
+                            
+                            if begin < len(piece_data) and begin + req_length <= len(piece_data):
+                                requested_data = piece_data[begin:begin+req_length]
+                                
+                                logger.info(f"Sending piece {index}, offset {begin}, length {len(requested_data)} bytes")
                                 
                                 
-                                logger.info(f"Sending piece {index}, offset {begin}, length {len(piece_data)}")
-                                
-                                
-                                msg = struct.pack(">IBII", len(piece_data) + 9, 7, index, begin) + piece_data
-                                sock.sendall(msg)
+                                try:
+                                    msg = struct.pack(">IBII", len(requested_data) + 9, 7, index, begin) + requested_data
+                                    sock.sendall(msg)
+                                    logger.debug(f"Successfully sent piece {index}")
+                                except Exception as e:
+                                    logger.error(f"Failed to send piece {index}: {e}")
+                                    break
                             else:
-                                logger.error(f"Invalid request range: begin={begin}, length={req_length}, chunk size={len(chunk)}")
+                                logger.error(f"Invalid request range: begin={begin}, length={req_length}, piece size={len(piece_data)}")
                         else:
-                            logger.error(f"Requested chunk {index} not found")
+                            logger.error(f"Requested piece {index} beyond file size")
                             
                 elif msg_id == 7:  
                     logger.debug("Received piece")
@@ -186,7 +225,17 @@ class BitTorrentPeer:
                     logger.debug("Received cancel")
                 else:
                     logger.warning(f"Unknown message type: {msg_id}")
-            
+                
+            except socket.timeout:
+                logger.warning("Socket timeout - sending keep-alive")
+                try:
+                    sock.sendall(struct.pack(">I", 0))  
+                except:
+                    logger.error("Failed to send keep-alive")
+                    break
+            except ConnectionResetError:
+                logger.info("Connection reset by peer")
+                break
             except Exception as e:
                 logger.error(f"Error processing BitTorrent message: {e}")
                 break

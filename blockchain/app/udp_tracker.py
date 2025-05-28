@@ -16,14 +16,14 @@ class UDPTracker:
         self.sock.bind(('0.0.0.0', port))
         self.running = False
         
-        # BitTorrent UDP tracker protocol constants
+        
         self.CONNECT = 0
         self.ANNOUNCE = 1
         self.SCRAPE = 2
         self.ERROR = 3
         
-        # Connection tracking
-        self.connections = {}  # connection_id -> timestamp
+        
+        self.connections = {}  
         
     def start(self):
         """Start the UDP tracker server"""
@@ -48,7 +48,7 @@ class UDPTracker:
             if len(data) < 16:
                 return
                 
-            # Parse the basic structure
+            
             connection_id = struct.unpack('>Q', data[:8])[0]
             action = struct.unpack('>I', data[8:12])[0]
             transaction_id = struct.unpack('>I', data[12:16])[0]
@@ -65,15 +65,15 @@ class UDPTracker:
             
     def handle_connect(self, transaction_id, addr):
         """Handle connect request"""
-        # Generate a connection ID
+        
         connection_id = int(time.time()) + hash(addr) % 1000000
         self.connections[connection_id] = time.time()
         
-        # Send connect response
+        
         response = struct.pack('>IIQ', 
-                             self.CONNECT,      # action
-                             transaction_id,    # transaction_id  
-                             connection_id)     # connection_id
+                             self.CONNECT,      
+                             transaction_id,    
+                             connection_id)     
         
         self.sock.sendto(response, addr)
         logger.debug(f"Connect response sent to {addr}")
@@ -81,18 +81,18 @@ class UDPTracker:
     def handle_announce(self, data, transaction_id, addr):
         """Handle announce request"""
         try:
-            if len(data) < 98:  # Minimum announce request size
+            if len(data) < 98:  
                 return
                 
-            # Parse announce request
+            
             connection_id = struct.unpack('>Q', data[:8])[0]
             
-            # Verify connection
+            
             if connection_id not in self.connections:
                 self.send_error(transaction_id, "Invalid connection ID", addr)
                 return
                 
-            # Parse announce data
+            
             info_hash = data[16:36]
             peer_id = data[36:56]
             downloaded = struct.unpack('>Q', data[56:64])[0]
@@ -104,7 +104,7 @@ class UDPTracker:
             num_want = struct.unpack('>i', data[92:96])[0]
             port = struct.unpack('>H', data[96:98])[0]
             
-            # Build peer list from blockchain nodes
+            
             peers_data = b''
             peer_count = 0
             
@@ -112,7 +112,7 @@ class UDPTracker:
                 try:
                     if ':' in node:
                         host, node_port = node.split(':')
-                        # Convert IP to bytes
+                        
                         ip_bytes = socket.inet_aton(host)
                         port_bytes = struct.pack('>H', int(node_port))
                         peers_data += ip_bytes + port_bytes
@@ -120,13 +120,13 @@ class UDPTracker:
                 except:
                     continue
             
-            # Send announce response
+            
             response = struct.pack('>IIIII',
-                                 self.ANNOUNCE,     # action
-                                 transaction_id,    # transaction_id
-                                 1800,             # interval (30 minutes)
-                                 0,                # leechers
-                                 len(self.blockchain.nodes))  # seeders
+                                 self.ANNOUNCE,     
+                                 transaction_id,    
+                                 1800,             
+                                 0,                
+                                 len(self.blockchain.nodes))  
             
             response += peers_data
             
@@ -139,16 +139,16 @@ class UDPTracker:
             
     def handle_scrape(self, data, transaction_id, addr):
         """Handle scrape request"""
-        # Simple scrape response
-        response = struct.pack('>II',
-                             self.SCRAPE,       # action
-                             transaction_id)    # transaction_id
         
-        # Add scrape data for each info_hash (simplified)
+        response = struct.pack('>II',
+                             self.SCRAPE,       
+                             transaction_id)    
+        
+        
         scrape_data = struct.pack('>III', 
-                                len(self.blockchain.nodes),  # seeders
-                                0,                            # completed
-                                0)                            # leechers
+                                len(self.blockchain.nodes),  
+                                0,                            
+                                0)                            
         response += scrape_data
         
         self.sock.sendto(response, addr)
@@ -159,7 +159,7 @@ class UDPTracker:
         response = struct.pack('>II', self.ERROR, transaction_id) + message_bytes
         self.sock.sendto(response, addr)
 
-# Singleton instance
+
 udp_tracker_instance = None
 
 def start_udp_tracker(port=6969, blockchain=None):

@@ -30,7 +30,21 @@ class TorrentFile:
         
         
         
+    def get_original_file_data(self):
+        """Pobiera oryginalne dane pliku z JSON"""
+        json_path = os.path.join("torrents", f"{self.file_id}.json")
         
+        if os.path.exists(json_path):
+            with open(json_path, 'r') as f:
+                data = json.load(f)
+                
+            if 'original_data_base64' in data:
+                import base64
+                logger.info(f"Loading original file data from JSON for {self.file_id}")
+                return base64.b64decode(data['original_data_base64'])
+        
+        logger.warning(f"No original_data_base64 found for {self.file_id}")
+        return None 
         
         
 
@@ -41,6 +55,7 @@ class TorrentFile:
         })
 
     def assign_chunk_to_node(self, chunk_id, node_address):
+        """Przypisz chunk do węzła - użyj pełnego chunk_id"""
         if chunk_id not in self.nodes:
             self.nodes[chunk_id] = []
         if node_address not in self.nodes[chunk_id]:
@@ -74,72 +89,120 @@ class TorrentFile:
         """Zapisuje plik .torrent i zwraca ścieżkę pliku oraz info_hash"""
         os.makedirs(directory, exist_ok=True)
 
-        
+    
         file_path = os.path.join(directory, f"{self.file_id}.torrent")
 
+    
+        transaction = None
+        if hasattr(self, 'blockchain') and self.blockchain:
+            for block in self.blockchain.chain:
+                for tx in block.transactions:
+                    if isinstance(tx, dict) and tx.get('transaction_id') == self.file_id:
+                        transaction = tx
+                        break
+                if transaction:
+                    break
+    
+    
+        json_data = self.to_dict()
+    
+        if transaction:
+            import base64
+            file_data = transaction['data']
+            
+            
+            def is_base64(s):
+                """Sprawdź czy string wygląda jak base64"""
+                try:
+                    if isinstance(s, str):
+                        
+                        import re
+                        if re.match(r'^[A-Za-z0-9+/]*={0,2}$', s):
+                            
+                            base64.b64decode(s)
+                            return True
+                    return False
+                except:
+                    return False
+            
+            
+            if transaction.get('encoding') == 'base64':
+                
+                json_data['original_data_base64'] = file_data
+                logger.info("Using file_data marked as base64")
+            elif isinstance(file_data, str) and is_base64(file_data):
+                
+                json_data['original_data_base64'] = file_data
+                logger.info("Detected file_data as base64 format")
+            elif isinstance(file_data, str):
+                
+                file_data_bytes = file_data.encode('utf-8')
+                json_data['original_data_base64'] = base64.b64encode(file_data_bytes).decode('ascii')
+                logger.info("Encoded text file_data to base64")
+            else:
+                
+                json_data['original_data_base64'] = base64.b64encode(file_data).decode('ascii')
+                logger.info("Encoded binary file_data to base64")
         
+            logger.info(f"Added original_data_base64 to JSON (length: {len(json_data['original_data_base64'])})")
+
+    
         json_path = os.path.join(directory, f"{self.file_id}.json")
         with open(json_path, 'w') as f:
-            json.dump(self.to_dict(), f)
+            json.dump(json_data, f)
 
-        
+    
         logger.info(f"TORRENT DEBUG: file_size = {self.file_size}")
         logger.info(f"TORRENT DEBUG: total_chunks = {self.total_chunks}")
         logger.info(f"TORRENT DEBUG: chunk_size = {self.chunk_size}")
-        
-        
+    
+    
         pieces = b''
-        total_assembled_size = 0  
+        total_assembled_size = 0
+    
+        if 'original_data_base64' in json_data:
+            
+            try:
+                original_file_data = base64.b64decode(json_data['original_data_base64'])
+                logger.info(f"Successfully decoded original_data_base64: {len(original_file_data)} bytes")
+            except Exception as e:
+                logger.error(f"Failed to decode original_data_base64: {e}")
+                return None, None, None
         
-        for chunk_index in range(self.total_chunks):
-            chunk_id = f"{self.file_id}_{chunk_index}"
-            chunk_data = self._get_chunk_data(chunk_id)
             
-            if chunk_data:
-                
-                if isinstance(chunk_data, str):
-                    try:
-                        import base64
-                        chunk_data = base64.b64decode(chunk_data)
-                        logger.debug(f"Decoded chunk {chunk_index} from base64 for hashing")
-                    except:
-                        chunk_data = chunk_data.encode('utf-8')
-                        logger.debug(f"Encoded chunk {chunk_index} as UTF-8 for hashing")
-                        
-            
-            total_assembled_size += len(chunk_data)
-            logger.debug(f"Chunk {chunk_index}: {len(chunk_data)} bytes (total so far: {total_assembled_size})")
-                    
-            
-            hash_bytes = hashlib.sha1(chunk_data).digest()
-            logger.debug(f"Generated SHA-1 hash for chunk {chunk_index}: {hash_bytes.hex()}")
+            for i in range(0, len(original_file_data), self.chunk_size):
+                chunk_data = original_file_data[i:i+self.chunk_size]
+                hash_bytes = hashlib.sha1(chunk_data).digest()
+                pieces += hash_bytes
+                total_assembled_size += len(chunk_data)
+                logger.debug(f"Chunk {i//self.chunk_size}: {len(chunk_data)} bytes, SHA-1: {hash_bytes.hex()}")
         
-            pieces += hash_bytes
+            
+            actual_file_size = len(original_file_data)
+            if actual_file_size != self.file_size:
+                logger.warning(f"Adjusting file_size from {self.file_size} to {actual_file_size}")
+                self.file_size = actual_file_size
+                total_assembled_size = actual_file_size
+            else:
+                logger.error("No original_data_base64 found - cannot create torrent")
+                return None, None, None
 
-        
-        if total_assembled_size != self.file_size:
-            logger.error(f"CRITICAL SIZE MISMATCH: chunks total={total_assembled_size}, file_size={self.file_size}")
-            
-            logger.warning(f"Using assembled size {total_assembled_size} instead of {self.file_size}")
-            self.file_size = total_assembled_size  
-
-        
+    
         info_dict = {
             b'name': self.file_name.encode('utf-8'),
             b'piece length': self.chunk_size,
             b'pieces': pieces,
-            b'length': self.file_size,  
+            b'length': self.file_size,
         }
-        
+    
         logger.info(f"FINAL TORRENT: length={self.file_size}, pieces={len(pieces)//20} chunks")
-        
-        
+    
         torrent_dict = {
             b'info': info_dict,
             b'announce': b'http://127.0.0.1:5001/announce'
         }
-        
-        
+    
+    
         if self.announce_urls:
             announce_list = []
             for url in self.announce_urls:
@@ -147,12 +210,13 @@ class TorrentFile:
             if announce_list:
                 torrent_dict[b'announce-list'] = announce_list
 
+    
         import bencodepy
         with open(file_path, 'wb') as f:
             torrent_data = bencodepy.encode(torrent_dict)
             f.write(torrent_data)
 
-        
+    
         info_bencode = bencodepy.encode(info_dict)
         info_hash_bytes = hashlib.sha1(info_bencode).digest()
         info_hash_hex = info_hash_bytes.hex()
@@ -250,15 +314,15 @@ class TorrentManager:
         for i in range(0, file_size, chunk_size):
             chunk_data = file_data[i:i+chunk_size]
             chunk_index = i//chunk_size
-            chunk_id = f"{transaction_id}_{chunk_index}"
+            chunk_id = f"{transaction_id}_{chunk_index}"  
             chunk_hash = hashlib.sha256(chunk_data).hexdigest()
-    
-            
+
             
             self.chunk_storage[chunk_id] = chunk_data
             
             
-            torrent.add_chunk(chunk_index, chunk_hash)
+            torrent.add_chunk(chunk_id, chunk_hash)  
+            
             chunks.append({
                 'id': chunk_id,
                 'index': chunk_index,
@@ -304,7 +368,8 @@ class TorrentManager:
         for chunk in chunks:
             selected_nodes = random.sample(nodes, redundancy)
             for node in selected_nodes:
-                torrent.assign_chunk_to_node(chunk['index'], node)
+                
+                torrent.assign_chunk_to_node(chunk['id'], node)  
                 
                 try:
                     import requests
@@ -314,10 +379,8 @@ class TorrentManager:
                     if isinstance(chunk['data'], bytes):
                         chunk_data_base64 = base64.b64encode(chunk['data']).decode('ascii')
                     else:
-                        
                         chunk_data_binary = chunk['data'].encode('utf-8') if isinstance(chunk['data'], str) else chunk['data']
                         chunk_data_base64 = base64.b64encode(chunk_data_binary).decode('ascii')
-                    
                     
                     requests.post(
                         f"http://{node}/torrent/store_chunk",
@@ -428,3 +491,19 @@ class TorrentManager:
                     self.info_hash_to_file_id[info_hash_bytes] = file_id
                 
                     logger.info(f"Added mapping from existing torrent: {info_hash_hex} -> {file_id}")
+
+    def get_original_file_data(self):
+        """Pobiera oryginalne dane pliku z JSON"""
+        json_path = os.path.join("torrents", f"{self.file_id}.json")
+        
+        if os.path.exists(json_path):
+            with open(json_path, 'r') as f:
+                data = json.load(f)
+                
+            if 'original_data_base64' in data:
+                import base64
+                logger.info(f"Loading original file data from JSON for {self.file_id}")
+                return base64.b64decode(data['original_data_base64'])
+        
+        logger.warning(f"No original_data_base64 found for {self.file_id}")
+        return None

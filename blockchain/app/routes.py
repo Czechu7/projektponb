@@ -339,17 +339,54 @@ def download_file_torrent(file_id):
 
 @bp.route('/torrent/file/<file_id>', methods=['GET'])
 def download_torrent_file(file_id):
-    torrent_path = os.path.join(torrent_manager.torrent_dir, f"{file_id}.torrent")
-    
-    if not os.path.exists(torrent_path):
-        return jsonify({'message': 'Torrent file not found'}), 404
+    """Pobiera plik .torrent do użycia w kliencie BitTorrent"""
+    try:
         
-    return send_file(
-        torrent_path,
-        as_attachment=True,
-        download_name=f"{file_id}.torrent",
-        mimetype='application/x-bittorrent'
-    )
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        project_root = os.path.dirname(current_dir)  
+        torrents_dir = os.path.join(project_root, "torrents")
+        torrent_path = os.path.join(torrents_dir, f"{file_id}.torrent")
+        
+        print(f"DEBUG: Looking for torrent at: {torrent_path}")
+        print(f"DEBUG: Directory exists: {os.path.exists(torrents_dir)}")
+        print(f"DEBUG: File exists: {os.path.exists(torrent_path)}")
+        
+        if os.path.exists(torrent_path):
+            
+            torrent = torrent_manager.get_torrent(file_id)
+            download_name = f"{torrent.file_name}.torrent" if torrent else f"{file_id}.torrent"
+            
+            return send_file(
+                torrent_path,
+                as_attachment=True,
+                download_name=download_name,
+                mimetype='application/x-bittorrent'
+            )
+        
+        
+        torrent = torrent_manager.get_torrent(file_id)
+        if not torrent:
+            return jsonify({'message': 'Torrent not found'}), 404
+        
+        
+        result = torrent.save_to_file(torrents_dir)
+        
+        if result and len(result) >= 1 and result[0]:
+            generated_path = result[0]
+            download_name = f"{torrent.file_name}.torrent"
+            
+            return send_file(
+                generated_path,
+                as_attachment=True,
+                download_name=download_name,
+                mimetype='application/x-bittorrent'
+            )
+        else:
+            return jsonify({'message': 'Failed to generate torrent file'}), 500
+        
+    except Exception as e:
+        print(f"ERROR: {e}")
+        return jsonify({'message': f'Error: {str(e)}'}), 500
 
 
 @bp.route('/announce', methods=['GET'])

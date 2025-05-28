@@ -29,4 +29,12 @@ def create_app():
     monitor_thread.daemon = True
     monitor_thread.start()
     
+    # Start UDP Tracker
+    try:
+        from .udp_tracker import start_udp_tracker
+        from .routes import blockchain
+        start_udp_tracker(6969, blockchain)
+    except Exception as e:
+        logger.error(f"Failed to start UDP Tracker: {e}")
+    
     return app

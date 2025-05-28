@@ -7,7 +7,7 @@ import { FileService } from '../../../_services/file.service';
 import { BlockchainService } from '../../../_services/blockchain.service';
 import { NodeService } from '../../../_services/node.service';
 import { DocumentsService } from '../../../_services/documents.service';
-
+import { HttpClient } from '@angular/common/http';
 
 @Component({
   selector: 'app-documents-widget',
@@ -24,6 +24,7 @@ export class DocumentsWidgetComponent {
   private blockchainService = inject(BlockchainService);
   private nodeService = inject(NodeService);
   private documentsService = inject(DocumentsService);
+  private http = inject(HttpClient);
   //documents: any;
   nodeStatuses = this.blockchainService.nodeStatuses$;
   documents$ = this.documentsService.getMergedChain();
@@ -78,4 +79,21 @@ export class DocumentsWidgetComponent {
   this.documentsService.downloadFile(transaction);
 }
 
+ createTorrent(transaction: any) {
+  console.log("Creating torrent for transaction:", transaction.transaction_Id);
+  
+  if (transaction) {
+    this.http.get(`http://localhost:5001/torrent/create/${transaction}`)
+      .subscribe({
+        next: (response) => {
+          console.log('Torrent created successfully', response);
+        },
+        error: (error) => {
+          console.error('Error creating torrent', error);
+        }
+      });
+  } else {
+    console.error('Invalid transaction', transaction);
+  }
+}
 }

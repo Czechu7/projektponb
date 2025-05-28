@@ -33,10 +33,10 @@ class FileUploadHub:
             file_name, file_data, checksum = data
 
             transaction = {
-                "transaction_id": "9",
-                "document_id": "9",
-                "document_type": "jpg",
-                "timestamp": "15-15-10.10.2024",
+                "transaction_id": str(int(time.time())),  # Use timestamp as unique ID
+                "document_id": str(int(time.time())),
+                "document_type": file_name.split('.')[-1] if '.' in file_name else "unknown",
+                "timestamp": time.strftime("%d-%m-%Y %H:%M:%S"),
                 "data": file_data,
                 "signature": file_name,
                 "crc": zlib.crc32(file_data.encode('utf-8'))
@@ -46,9 +46,16 @@ class FileUploadHub:
                 response = requests.post(f'http://127.0.0.1:5001/transactions/new', json={'transaction': transaction})
                 if response.status_code == 201:
                     logger.info("Transaction added to blockchain.")
-                    # time.sleep(1)
+                    # Mine the transaction to create a block
                     response = requests.get(f'http://127.0.0.1:5001/mine')
-                    # self.blockchain.mine_pending_transactions()
+                    
+                    # Create a torrent for this file
+                    transaction_id = transaction["transaction_id"]
+                    torrent_response = requests.get(f'http://127.0.0.1:5001/torrent/create/{transaction_id}')
+                    if torrent_response.status_code == 200:
+                        logger.info(f"Torrent created for file: {file_name}")
+                    else:
+                        logger.warning("Failed to create torrent for file.")
                 else:
                     logger.warning("Transaction was not added to blockchain.")
             else:

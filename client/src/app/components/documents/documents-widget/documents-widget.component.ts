@@ -12,15 +12,20 @@ import { HttpClient } from '@angular/common/http';
 @Component({
   selector: 'app-documents-widget',
   standalone: true,
-  imports: [CommonModule,BsDropdownModule,PaginationModule,ProgressbarModule],
+  imports: [
+    CommonModule,
+    BsDropdownModule,
+    PaginationModule,
+    ProgressbarModule,
+  ],
   templateUrl: './documents-widget.component.html',
-  styleUrl: './documents-widget.component.css'
+  styleUrl: './documents-widget.component.css',
 })
 export class DocumentsWidgetComponent {
   currentPage = 1;
   totalItems = 64;
   selectedFile: File | null = null;
-  private fileService= inject(FileService);
+  private fileService = inject(FileService);
   private blockchainService = inject(BlockchainService);
   private nodeService = inject(NodeService);
   private documentsService = inject(DocumentsService);
@@ -32,68 +37,73 @@ export class DocumentsWidgetComponent {
   //documents = signal<any[]>([]);
   uploadFile(): void {
     if (this.selectedFile) {
-      this.fileService.uploadFile(this.selectedFile).subscribe(
-   
-      );
+      this.fileService.uploadFile(this.selectedFile).subscribe();
     }
   }
-  
 
   onFileSelected(event: any): void {
-    const file: File = event.target.files[0]; 
+    const file: File = event.target.files[0];
     if (file) {
       this.selectedFile = file;
     }
- }
-
- corruptNode(node: any){
-  console.log("node", node);
-  this.nodeService.disableNode(node).subscribe(x =>
-    console.log("x", x)
-  )
- }
-
- corruptHash(node: any){
-  console.log("node", node);
-  this.nodeService.corruptHash(node).subscribe(x =>
-    console.log("x", x)
-  )
- }
-
- corruptFile(node: any){
-  console.log("node", node);
-  this.nodeService.corruptFile(node).subscribe(x =>
-    console.log("x", x)
-  )
- }
-
- corruptFileFix(node: any){
-  console.log("node", node);
-  this.nodeService.corruptFileFix(node).subscribe(x =>
-    console.log("x", x)
-  )
- }
-
- downloadDocument(transaction: any) {
-  
-  this.documentsService.downloadFile(transaction);
-}
-
- createTorrent(transaction: any) {
-  console.log("Creating torrent for transaction:", transaction.transaction_Id);
-  
-  if (transaction) {
-    this.http.get(`http://localhost:5001/torrent/create/${transaction}`)
-      .subscribe({
-        next: (response) => {
-          console.log('Torrent created successfully', response);
-        },
-        error: (error) => {
-          console.error('Error creating torrent', error);
-        }
-      });
-  } else {
-    console.error('Invalid transaction', transaction);
   }
-}
+
+  corruptNode(node: any) {
+    console.log('node', node);
+    this.nodeService.disableNode(node).subscribe((x) => console.log('x', x));
+  }
+
+  corruptHash(node: any) {
+    console.log('node', node);
+    this.nodeService.corruptHash(node).subscribe((x) => console.log('x', x));
+  }
+
+  corruptFile(node: any) {
+    console.log('node', node);
+    this.nodeService.corruptFile(node).subscribe((x) => console.log('x', x));
+  }
+
+  corruptFileFix(node: any) {
+    console.log('node', node);
+    this.nodeService.corruptFileFix(node).subscribe((x) => console.log('x', x));
+  }
+
+  downloadDocument(transaction: any) {
+    this.documentsService.downloadFile(transaction);
+  }
+
+  createTorrent(transaction: any) {
+    // console.log('transaction', transaction.transaction_id);
+
+    this.fileService.createTorrent(transaction.transaction_id).subscribe({
+      next: (response) => {
+        console.log('Torrent created successfully:', response);
+      },
+      error: (error) => {
+        console.error('Error creating torrent:', error);
+      },
+      complete: () => {
+        this.fileService.downloadTorrent(transaction.transaction_id).subscribe({
+          next: (response: any) => {
+            console.log('Torrent downloaded successfully:', response);
+            const blob = new Blob([response], {
+              type: 'application/x-bittorrent',
+            });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${transaction.transaction_id}.torrent`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+          },
+          error: (error) => {
+            console.error('Error downloading torrent:', error);
+          },
+          complete: () => {},
+        });
+      },
+    });
+  }
 }

@@ -73,22 +73,12 @@ export class DocumentsWidgetComponent {
   }
 
   createTorrent(transaction: any) {
-    // console.log('transaction', transaction.transaction_id);
-
     this.fileService.createTorrent(transaction.transaction_id).subscribe({
       next: (response) => {
         console.log('Torrent created successfully:', response);
-      },
-      error: (error) => {
-        console.error('Error creating torrent:', error);
-      },
-      complete: () => {
         this.fileService.downloadTorrent(transaction.transaction_id).subscribe({
-          next: (response: any) => {
-            console.log('Torrent downloaded successfully:', response);
-            const blob = new Blob([response], {
-              type: 'application/x-bittorrent',
-            });
+          next: (blob: Blob) => {
+            console.log('Torrent downloaded successfully');
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
@@ -101,8 +91,10 @@ export class DocumentsWidgetComponent {
           error: (error) => {
             console.error('Error downloading torrent:', error);
           },
-          complete: () => {},
         });
+      },
+      error: (error) => {
+        console.error('Error creating torrent:', error);
       },
     });
   }

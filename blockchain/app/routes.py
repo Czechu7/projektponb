@@ -9,8 +9,10 @@ import logging
 from .models.torrent import TorrentManager
 import base64
 import bencodepy
+from flask_cors import CORS
 
 bp = Blueprint('blockchain', __name__)
+CORS(bp)
 blockchain = Blockchain()
 
 
